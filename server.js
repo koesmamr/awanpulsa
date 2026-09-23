@@ -17,7 +17,7 @@ const env = {
   BACKUP_PASSWORD: process.env.BACKUP_PASSWORD || 'AwanPulsa2026Secure!',
   GAS_WEB_APP_URL: activeGasUrl,
   GAS_SECRET_TOKEN: process.env.GAS_SECRET_TOKEN || 'RahasiaVPNtuban123!',
-  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || 'sk-b15cc5eb16174519a61761b8a0d9011e',
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || 'AIzaSyA40MjBzjfrz5USxbksV61M-B6aMc3NP_0',
   AI: {
     run: async (model, opts) => {

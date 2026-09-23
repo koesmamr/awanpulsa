@@ -4304,7 +4304,7 @@ DAFTAR KODE (PILIH SALAH SATU DAN KETIK TANPA BASA-BASI):
         let reply = "";
         let aiProvider = appSettings.ai_provider || "deepseek";
         if (aiProvider === "deepseek") {
-          const deepseekKey = env.DEEPSEEK_API_KEY || "sk-b15cc5eb16174519a61761b8a0d9011e";
+          const deepseekKey = env.DEEPSEEK_API_KEY || (typeof process !== "undefined" && process.env && process.env.DEEPSEEK_API_KEY) || "";
           try {
             const dsRes = await fetch("https://api.deepseek.com/chat/completions", {
               method: "POST",
