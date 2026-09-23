@@ -72,9 +72,16 @@ async function getAppSettings(env) {
     ai_hourly_limit: 10,
     payment_tripay: false,
     payment_violet: false,
-    payment_qris_manual: false,
-    payment_shopeepay: true,
-    payment_gopay: true,
+    payment_qris_manual: true,
+    payment_manual: true,
+    payment_shopeepay: false,
+    payment_gopay: false,
+    manual_bsi_rek: "7293609009",
+    manual_bsi_name: "sutroni soga",
+    manual_dana_rek: "08979527685",
+    manual_dana_name: "sutroni soga",
+    manual_shopee_rek: "08979527685",
+    manual_shopee_name: "hasnasyukur",
     autogopay_api_key: (env && env.AUTOGOPAY_API_KEY) || "agp_1bae647d0c0c25307757c1a60afa7b06256c90dbefb4650f3f7e43a03d5c2a7d",
     shopeepay_qris_static: (env && env.SHOPEEPAY_QRIS_STATIC) || "00020101021126610016ID.CO.SHOPEE.WWW01189360091800205167330208205167330303UMI51440014ID.CO.QRIS.WWW0215ID10221779795590303UMI5204539953033605802ID5912konter pulsa6009GORONTALO61059612162070703A016304C60C",
     gopay_qris_static: (env && env.GOPAY_QRIS_STATIC) || "00020101021126610014COM.GO-JEK.WWW01189360091432182828890210G2182828890303UMI51440014ID.CO.QRIS.WWW0215ID10265930588070303UMI5204481453033605802ID5922konter pulsa, SIPATANA6009GORONTALO61059612162140703A0111036216304E906",
@@ -100,6 +107,21 @@ async function getAppSettings(env) {
       if (!cachedAppSettings.ai_hourly_limit) {
         cachedAppSettings.ai_hourly_limit = 10;
       }
+      if (cachedAppSettings.payment_qris_manual === undefined) {
+        cachedAppSettings.payment_qris_manual = true;
+      }
+      if (cachedAppSettings.payment_manual === undefined) {
+        cachedAppSettings.payment_manual = true;
+      }
+      if (!cachedAppSettings.manual_bsi_rek) cachedAppSettings.manual_bsi_rek = "7293609009";
+      if (!cachedAppSettings.manual_bsi_name) cachedAppSettings.manual_bsi_name = "sutroni soga";
+      if (!cachedAppSettings.manual_dana_rek) cachedAppSettings.manual_dana_rek = "08979527685";
+      if (!cachedAppSettings.manual_dana_name) cachedAppSettings.manual_dana_name = "sutroni soga";
+      if (!cachedAppSettings.manual_shopee_rek) cachedAppSettings.manual_shopee_rek = "08979527685";
+      if (!cachedAppSettings.manual_shopee_name) cachedAppSettings.manual_shopee_name = "hasnasyukur";
+      // AwanPulsa saat ini belum memiliki QRIS, gunakan transfer manual
+      cachedAppSettings.payment_shopeepay = false;
+      cachedAppSettings.payment_gopay = false;
       cachedAppSettings.payment_tripay = false;
       cachedAppSettings.payment_violet = false;
       cachedAppSettingsTime = now;
@@ -705,9 +727,9 @@ async function renderAdminDashboard(env, currentUser, appSettings) {
   const kmspMarkup = appSettings.kmsp_markup !== void 0 ? appSettings.kmsp_markup : 3e3;
   const backupFreq = appSettings.auto_backup_frequency !== void 0 ? parseInt(appSettings.auto_backup_frequency) : 24;
   const licPrice = appSettings.script_price_per_day || 500;
-  const isQrisManualOn = appSettings.payment_qris_manual === true;
-  const isShopeePayOn = appSettings.payment_shopeepay !== false;
-  const isGoPayOn = appSettings.payment_gopay !== false;
+  const isQrisManualOn = appSettings.payment_qris_manual !== false;
+  const isShopeePayOn = appSettings.payment_shopeepay === true;
+  const isGoPayOn = appSettings.payment_gopay === true;
   return `
     <style>
         /* Fix SweetAlert2 Select Options visibility in Light Theme */
@@ -1317,39 +1339,39 @@ async function renderAdminDashboard(env, currentUser, appSettings) {
                         <h4 class="text-sm font-bold text-white mb-3">Metode Top Up Saldo & Fitur</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">QRIS Manual (Admin Cek)</label>
+                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Transfer Manual (BSI, Shopee, DANA)</label>
                                 <select id="setQrisManualActive" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold">
-                                    <option value="false" ${!isQrisManualOn ? "selected" : ""}>\u{1F534} OFF - Mati</option>
-                                    <option value="true" ${isQrisManualOn ? "selected" : ""}>\u{1F7E2} ON - Aktif</option>
+                                    <option value="true" ${isQrisManualOn ? "selected" : ""}>🟢 ON - Aktif (Transfer Manual)</option>
+                                    <option value="false" ${!isQrisManualOn ? "selected" : ""}>🔴 OFF - Mati</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">QRIS Otomatis (autocek by system)</label>
+                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">QRIS Otomatis (ShopeePay)</label>
                                 <select id="setShopeePayActive" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold">
-                                    <option value="true" ${isShopeePayOn ? "selected" : ""}>\u{1F7E2} ON - Aktif</option>
-                                    <option value="false" ${!isShopeePayOn ? "selected" : ""}>\u{1F534} OFF - Mati</option>
+                                    <option value="false" ${!isShopeePayOn ? "selected" : ""}>🔴 OFF - Mati</option>
+                                    <option value="true" ${isShopeePayOn ? "selected" : ""}>🟢 ON - Aktif</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">GoPay (AutoGoPay)</label>
                                 <select id="setGoPayActive" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold">
-                                    <option value="true" ${isGoPayOn ? "selected" : ""}>\u{1F7E2} ON - Aktif</option>
-                                    <option value="false" ${!isGoPayOn ? "selected" : ""}>\u{1F534} OFF - Mati</option>
+                                    <option value="false" ${!isGoPayOn ? "selected" : ""}>🔴 OFF - Mati</option>
+                                    <option value="true" ${isGoPayOn ? "selected" : ""}>🟢 ON - Aktif</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Asisten AI Chat</label>
                                 <select id="setAiActive" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold">
-                                    <option value="true" ${appSettings.ai_chat_active !== false ? "selected" : ""}>\u{1F7E2} ON - Aktif</option>
-                                    <option value="false" ${appSettings.ai_chat_active === false ? "selected" : ""}>\u{1F534} OFF - Mati</option>
+                                    <option value="true" ${appSettings.ai_chat_active !== false ? "selected" : ""}>🟢 ON - Aktif</option>
+                                    <option value="false" ${appSettings.ai_chat_active === false ? "selected" : ""}>🔴 OFF - Mati</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Provider AI</label>
                                 <select id="setAiProvider" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold">
-                                    <option value="deepseek" ${appSettings.ai_provider === "deepseek" || !appSettings.ai_provider || appSettings.ai_provider === "cloudflare" ? "selected" : ""}>\u{1F40B} DeepSeek AI (Rekomendasi - Cepat &amp; Pintar)</option>
-                                    <option value="gemini" ${appSettings.ai_provider === "gemini" ? "selected" : ""}>\u264A Google Gemini Flash</option>
-                                    <option value="cloudflare" ${appSettings.ai_provider === "cloudflare" ? "selected" : ""}>\u2601\uFE0F Cloudflare (Llama-3)</option>
+                                    <option value="deepseek" ${appSettings.ai_provider === "deepseek" || !appSettings.ai_provider || appSettings.ai_provider === "cloudflare" ? "selected" : ""}>🐳 DeepSeek AI (Rekomendasi - Cepat &amp; Pintar)</option>
+                                    <option value="gemini" ${appSettings.ai_provider === "gemini" ? "selected" : ""}>♊ Google Gemini Flash</option>
+                                    <option value="cloudflare" ${appSettings.ai_provider === "cloudflare" ? "selected" : ""}>☁️ Cloudflare (Llama-3)</option>
                                 </select>
                             </div>
                             <div>
@@ -1357,6 +1379,40 @@ async function renderAdminDashboard(env, currentUser, appSettings) {
                                 <input type="number" id="setAiHourlyLimit" value="${appSettings.ai_hourly_limit || 10}" min="1" max="100" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none font-bold" placeholder="10">
                             </div>
                         </div>
+
+                        <!-- Pengaturan Akun Transfer Manual AwanPulsa -->
+                        <div class="mt-4 pt-4 border-t border-gray-800 space-y-3">
+                            <h5 class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <span>💳</span> Nomor Rekening &amp; E-Wallet Transfer Manual
+                            </h5>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">🏦 No. Rekening Bank BSI</label>
+                                    <input type="text" id="setBsiRek" value="${appSettings.manual_bsi_rek || '7293609009'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">Atas Nama BSI</label>
+                                    <input type="text" id="setBsiName" value="${appSettings.manual_bsi_name || 'sutroni soga'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-medium focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">📱 Nomor DANA</label>
+                                    <input type="text" id="setDanaRek" value="${appSettings.manual_dana_rek || '08979527685'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">Atas Nama DANA</label>
+                                    <input type="text" id="setDanaName" value="${appSettings.manual_dana_name || 'sutroni soga'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-medium focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">🛍️ Nomor Shopee / ShopeePay</label>
+                                    <input type="text" id="setShopeeRek" value="${appSettings.manual_shopee_rek || '08979527685'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-400 mb-1">Atas Nama Shopee</label>
+                                    <input type="text" id="setShopeeName" value="${appSettings.manual_shopee_name || 'hasnasyukur'}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-white text-xs font-medium focus:ring-2 focus:ring-sky-500 outline-none">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mt-3 pt-3 border-t border-gray-800 space-y-3">
                             <div>
                                 <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">AutoGoPay API Key (Opsional / Override)</label>
@@ -2273,8 +2329,15 @@ ${isCurrentSuperAdmin ? `
                     payment_tripay: false,
                     payment_violet: false,
                     payment_qris_manual: document.getElementById('setQrisManualActive').value === 'true',
-                    payment_shopeepay: document.getElementById('setShopeePayActive') ? document.getElementById('setShopeePayActive').value === 'true' : true,
-                    payment_gopay: document.getElementById('setGoPayActive') ? document.getElementById('setGoPayActive').value === 'true' : true,
+                    payment_manual: document.getElementById('setQrisManualActive').value === 'true',
+                    payment_shopeepay: document.getElementById('setShopeePayActive') ? document.getElementById('setShopeePayActive').value === 'true' : false,
+                    payment_gopay: document.getElementById('setGoPayActive') ? document.getElementById('setGoPayActive').value === 'true' : false,
+                    manual_bsi_rek: document.getElementById('setBsiRek') ? document.getElementById('setBsiRek').value.trim() : '7293609009',
+                    manual_bsi_name: document.getElementById('setBsiName') ? document.getElementById('setBsiName').value.trim() : 'sutroni soga',
+                    manual_dana_rek: document.getElementById('setDanaRek') ? document.getElementById('setDanaRek').value.trim() : '08979527685',
+                    manual_dana_name: document.getElementById('setDanaName') ? document.getElementById('setDanaName').value.trim() : 'sutroni soga',
+                    manual_shopee_rek: document.getElementById('setShopeeRek') ? document.getElementById('setShopeeRek').value.trim() : '08979527685',
+                    manual_shopee_name: document.getElementById('setShopeeName') ? document.getElementById('setShopeeName').value.trim() : 'hasnasyukur',
                     autogopay_api_key: document.getElementById('setAgpApiKey') ? document.getElementById('setAgpApiKey').value.trim() : '',
                     shopeepay_qris_static: document.getElementById('setShopeeQrisStatic') ? document.getElementById('setShopeeQrisStatic').value.trim() : '',
                     gopay_qris_static: document.getElementById('setGopayQrisStatic') ? document.getElementById('setGopayQrisStatic').value.trim() : '',
@@ -3170,6 +3233,15 @@ async function handleAdminRoutes(url, request, env, currentUser, appSettings, se
         if (keterangan) mutasiDesc += ` (${keterangan})`;
         await catatMutasi(env, email, mutasiType, Math.abs(value), mutasiDesc);
         const isAddition = value > 0;
+        if (isAddition) {
+          try {
+            const pendingInv = await env.DB.prepare("SELECT * FROM invoices WHERE email = ? AND status = 'UNPAID' ORDER BY id DESC LIMIT 1").bind(email).first();
+            if (pendingInv) {
+              await env.DB.prepare("UPDATE invoices SET status = 'PAID' WHERE id = ?").bind(pendingInv.id).run();
+              await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND (title LIKE '%[PENDING]%' OR title LIKE '%PENDING%') AND message LIKE ?").bind(email, "%" + pendingInv.ref + "%").run().catch(() => {});
+            }
+          } catch(e) {}
+        }
         const absValue = Math.abs(value).toLocaleString("id-ID");
         const actionText = isAddition ? "Penambahan" : "Pengurangan";
         const actionVerb = isAddition ? "ditambahkan" : "dikurangi";
@@ -3272,8 +3344,8 @@ Waktu: ${getWIBTime()}`, updatedSettings);
       return jsonResponse({ success: false, message: "Akses ditolak: Hanya Super Admin yang diizinkan mengubah konfigurasi sistem & API Key." }, 403);
     }
     try {
-      const { payment_tripay, payment_violet, payment_qris_manual, payment_shopeepay, payment_gopay, autogopay_api_key, shopeepay_qris_static, gopay_qris_static, ai_chat_active, ai_provider, ai_hourly_limit, price_per_day, script_price_per_day, kmsp_markup, telegram_bot_token, telegram_channel_id, auto_backup_frequency, maintenance_mode, servers } = await request.json();
-      const settingStr = JSON.stringify({ payment_tripay, payment_violet, payment_qris_manual, payment_shopeepay, payment_gopay, autogopay_api_key, shopeepay_qris_static, gopay_qris_static, ai_chat_active, ai_provider, ai_hourly_limit: parseInt(ai_hourly_limit) || 10, price_per_day, script_price_per_day, kmsp_markup, telegram_bot_token, telegram_channel_id, auto_backup_frequency, maintenance_mode, servers });
+      const { payment_tripay, payment_violet, payment_qris_manual, payment_manual, payment_shopeepay, payment_gopay, manual_bsi_rek, manual_bsi_name, manual_dana_rek, manual_dana_name, manual_shopee_rek, manual_shopee_name, autogopay_api_key, shopeepay_qris_static, gopay_qris_static, ai_chat_active, ai_provider, ai_hourly_limit, price_per_day, script_price_per_day, kmsp_markup, telegram_bot_token, telegram_channel_id, auto_backup_frequency, maintenance_mode, servers } = await request.json();
+      const settingStr = JSON.stringify({ payment_tripay, payment_violet, payment_qris_manual, payment_manual: payment_manual !== undefined ? payment_manual : payment_qris_manual, payment_shopeepay, payment_gopay, manual_bsi_rek: manual_bsi_rek || '7293609009', manual_bsi_name: manual_bsi_name || 'sutroni soga', manual_dana_rek: manual_dana_rek || '08979527685', manual_dana_name: manual_dana_name || 'sutroni soga', manual_shopee_rek: manual_shopee_rek || '08979527685', manual_shopee_name: manual_shopee_name || 'hasnasyukur', autogopay_api_key, shopeepay_qris_static, gopay_qris_static, ai_chat_active, ai_provider, ai_hourly_limit: parseInt(ai_hourly_limit) || 10, price_per_day, script_price_per_day, kmsp_markup, telegram_bot_token, telegram_channel_id, auto_backup_frequency, maintenance_mode, servers });
       const existing = await env.DB.prepare("SELECT key FROM settings WHERE key = 'app'").first();
       if (existing) await env.DB.prepare("UPDATE settings SET value = ? WHERE key = 'app'").bind(settingStr).run();
       else await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('app', ?)").bind(settingStr).run();
@@ -4230,12 +4302,16 @@ FITUR UNGGULAN APLIKASI:
 - Beli Pulsa & PPOB (/pulsa-ppob): Cukup masukkan nomor tujuan atau ID Pelanggan, pilih produk, dan klik Beli. Saldo akun akan terpotong otomatis dan produk langsung diproses server dalam hitungan detik.
 - Pengiriman Token PLN Otomatis ke Kotak Masuk (Inbox): Pembeli token PLN tidak perlu menunggu lama di layar loading, kode token 20 digit otomatis masuk ke menu Kotak Masuk (/inbox) begitu diterbitkan server.
 - Auto-Save Buku Telepon: Nomor HP atau ID PLN baru yang diinput pembeli otomatis tersimpan ke buku kontak lokal, pembeli tidak perlu mengetik ulang di masa mendatang.
-- Top Up Saldo Instan: Melalui menu Top Up menggunakan QRIS otomatis (ShopeePay, GoPay, DANA, BCA, Livin, OVO) yang masuk otomatis dalam hitungan detik 24 jam.
+- Top Up Saldo Transfer Manual: Melalui menu Top Up menggunakan Transfer Manual ke rekening/nomor resmi AwanPulsa:
+  • Bank BSI: 7293609009 (a.n sutroni soga)
+  • DANA: 08979527685 (a.n sutroni soga)
+  • Shopee / ShopeePay: 08979527685 (a.n hasnasyukur)
+  Setelah melakukan transfer, pembeli wajib mengirim bukti transfer via WhatsApp ke CS (08979527685) agar saldo ditambahkan oleh Admin secara manual.
 
 PANDUAN & ATURAN JAWABAN:
 - Jika user bertanya saldo: sebutkan Saldo Saat Ini secara jelas (Rp ${(currentUser.balance || 0).toLocaleString("id-ID")}).
 - Jika user bertanya cara beli produk: jelaskan langkah mudahnya dan arahkan ke menu "Pulsa & PPOB" (/pulsa-ppob).
-- Jika user bertanya cara isi saldo: arahkan ke menu "Top Up" di dashboard utama via QRIS otomatis.
+- Jika user bertanya cara isi saldo: jelaskan bahwa AwanPulsa melayani Top Up via Transfer Manual ke Bank BSI (7293609009 a.n sutroni soga), DANA (08979527685 a.n sutroni soga), atau Shopee/ShopeePay (08979527685 a.n hasnasyukur). Informasikan untuk mengirimkan bukti transfer ke WhatsApp CS 08979527685 agar saldo ditambahkan Admin secara manual.
 - Berikan link rute hanya jika ditanyakan secara spesifik:
   - Pulsa & PPOB: /pulsa-ppob
   - Riwayat Saldo & Mutasi: /mutasi
@@ -6112,7 +6188,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                         <p class="text-xs sm:text-sm text-slate-500">Butuh informasi penting terkait akun atau transaksi berjalan? Hubungi tim kami:</p>
                                     </div>
                                     <div class="flex flex-wrap gap-2.5 shrink-0">
-                                        <a href="https://wa.me/6285240260221" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-xs">
+                                        <a href="https://wa.me/628979527685" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-xs">
                                             <span>WhatsApp CS</span>
                                         </a>
                                         <a href="https://t.me/pejuanggto" target="_blank" class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-xs">
@@ -7336,10 +7412,10 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
 
                             <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:-translate-y-1.5 hover:border-emerald-500 hover:shadow-xl transition-all duration-300">
                                 <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 border border-emerald-100">
-                                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-slate-900 mb-3">Deposit QRIS Otomatis</h3>
-                                <p class="text-slate-600 text-sm leading-relaxed">Pengisian saldo akun instan via QRIS Nasional (BCA, Mandiri, BRI, BNI, Dana, ShopeePay, GoPay) yang otomatis masuk dalam hitungan detik 24 jam.</p>
+                                <h3 class="text-xl font-bold text-slate-900 mb-3">Deposit &amp; Top Up Manual</h3>
+                                <p class="text-slate-600 text-sm leading-relaxed">Pengisian saldo mudah via transfer Bank BSI, DANA, dan ShopeePay. Cukup kirim bukti via WhatsApp dan saldo diinput langsung oleh Admin.</p>
                             </div>
                         </div>
                     </div>
@@ -7444,8 +7520,8 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
 
                             <div class="text-center p-6 rounded-3xl bg-slate-50 border border-slate-200/80">
                                 <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-lg mx-auto mb-4 shadow-md shadow-blue-600/20">2</div>
-                                <h4 class="font-bold text-slate-900 text-base mb-2">Isi Saldo via QRIS</h4>
-                                <p class="text-xs text-slate-600 leading-relaxed">Pilih nominal deposit, scan kode QRIS dari mobile banking atau e-wallet Anda. Saldo langsung masuk.</p>
+                                <h4 class="font-bold text-slate-900 text-base mb-2">Isi Saldo Transfer Manual</h4>
+                                <p class="text-xs text-slate-600 leading-relaxed">Pilih nominal deposit, transfer via Bank BSI, DANA, atau ShopeePay, lalu konfirmasi via WhatsApp CS. Saldo langsung diisi Admin.</p>
                             </div>
 
                             <div class="text-center p-6 rounded-3xl bg-slate-50 border border-slate-200/80">
@@ -7505,17 +7581,22 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
         currentUser.unpaid_invoices = validUnpaid;
         const formatRupiah = /* @__PURE__ */ __name222((angka) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(angka), "formatRupiah");
         
-        const isQrisManualOn = appSettings.payment_qris_manual === true;
-        const isShopeePayOn = appSettings.payment_shopeepay !== false;
-        const isGoPayOn = appSettings.payment_gopay !== false;
+        const isQrisManualOn = appSettings.payment_qris_manual !== false;
+        const isShopeePayOn = appSettings.payment_shopeepay === true;
+        const isGoPayOn = appSettings.payment_gopay === true;
         let paymentMethodHtml = "";
         const activeMethods = [];
+        if (isQrisManualOn) {
+          activeMethods.push({ value: "manual_bsi", label: `🏦 Transfer Bank BSI (${appSettings.manual_bsi_rek || '7293609009'} a.n ${appSettings.manual_bsi_name || 'sutroni soga'})` });
+          activeMethods.push({ value: "manual_dana", label: `📱 Transfer DANA (${appSettings.manual_dana_rek || '08979527685'} a.n ${appSettings.manual_dana_name || 'sutroni soga'})` });
+          activeMethods.push({ value: "manual_shopee", label: `🛍️ Transfer Shopee / ShopeePay (${appSettings.manual_shopee_rek || '08979527685'} a.n ${appSettings.manual_shopee_name || 'hasnasyukur'})` });
+          activeMethods.push({ value: "manual", label: "💳 Transfer Manual (Semua Rekening)" });
+        }
         if (isShopeePayOn) activeMethods.push({ value: "shopeepay", label: "QRIS Otomatis (autocek by system)" });
         if (isGoPayOn) activeMethods.push({ value: "gopay", label: "GoPay QRIS (AutoGoPay)" });
-        if (isQrisManualOn) activeMethods.push({ value: "manual", label: "QRIS Manual (Konfirmasi Admin)" });
         if (activeMethods.length > 1) {
           let optionsHtml = activeMethods.map((m) => `<option value="${m.value}">${m.label}</option>`).join("");
-          paymentMethodHtml = `<select id="topupMethod" class="w-full mb-3 bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm outline-none text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 transition">${optionsHtml}</select>`;
+          paymentMethodHtml = `<select id="topupMethod" class="w-full mb-3 bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm outline-none text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 transition font-medium">${optionsHtml}</select>`;
         } else if (activeMethods.length === 1) {
           paymentMethodHtml = `<input type="hidden" id="topupMethod" value="${activeMethods[0].value}">`;
         } else {
@@ -7559,14 +7640,16 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <h3 class="text-sm font-bold text-slate-800 mb-3">Isi Ulang Saldo</h3>
                                 ${paymentMethodHtml}
                                 <div class="flex flex-col sm:flex-row gap-3">
-                                    <select id="topupAmount" class="flex-grow bg-white border border-slate-300 rounded-xl p-3 text-sm outline-none text-slate-900 focus:ring-2 focus:ring-sky-500 transition">
-                                        <option value="1000">Rp 1.000</option>
-                                        <option value="5000">Rp 5.000</option>
+                                    <select id="topupAmount" class="flex-grow bg-white border border-slate-300 rounded-xl p-3 text-sm outline-none text-slate-900 focus:ring-2 focus:ring-sky-500 transition font-bold">
                                         <option value="10000">Rp 10.000</option>
                                         <option value="20000">Rp 20.000</option>
-                                        <option value="50000">Rp 50.000</option>
+                                        <option value="25000">Rp 25.000</option>
+                                        <option value="50000" selected>Rp 50.000</option>
                                         <option value="100000">Rp 100.000</option>
+                                        <option value="200000">Rp 200.000</option>
+                                        <option value="300000">Rp 300.000</option>
                                         <option value="500000">Rp 500.000</option>
+                                        <option value="1000000">Rp 1.000.000</option>
                                     </select>
                                     <button onclick="topUp()" id="btnTopup" ${disableTopupButton}>Top Up</button>
                                 </div>
@@ -7814,6 +7897,123 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                         } catch(e) {}
                     }
 
+                    window.copyToClipboard = function(text, label) {
+                        try {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(text);
+                            } else {
+                                const ta = document.createElement('textarea');
+                                ta.value = text;
+                                document.body.appendChild(ta);
+                                ta.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(ta);
+                            }
+                            const toast = Swal.mixin({
+                                toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true
+                            });
+                            toast.fire({ icon: 'success', title: (label || 'Teks') + ' disalin!' });
+                        } catch(e) {
+                            alert(label + ' disalin: ' + text);
+                        }
+                    };
+
+                    function showManualTopupModal(data) {
+                        const totalFmt = Number(data.total_amount || data.amount).toLocaleString('id-ID');
+                        const uniqueCode = data.unique_code || 0;
+                        const ref = data.ref || '';
+                        const sub = data.sub_method || 'manual';
+
+                        const bsiRek = data.bsi_rek || '${appSettings.manual_bsi_rek || "7293609009"}';
+                        const bsiName = data.bsi_name || '${appSettings.manual_bsi_name || "sutroni soga"}';
+                        const danaRek = data.dana_rek || '${appSettings.manual_dana_rek || "08979527685"}';
+                        const danaName = data.dana_name || '${appSettings.manual_dana_name || "sutroni soga"}';
+                        const shopeeRek = data.shopee_rek || '${appSettings.manual_shopee_rek || "08979527685"}';
+                        const shopeeName = data.shopee_name || '${appSettings.manual_shopee_name || "hasnasyukur"}';
+
+                        const isBsiChosen = sub === 'manual_bsi';
+                        const isDanaChosen = sub === 'manual_dana';
+                        const isShopeeChosen = sub === 'manual_shopee';
+
+                        let htmlContent = '<div class="text-left text-slate-800 text-sm">';
+                        htmlContent += '<div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl mb-4 text-center">';
+                        htmlContent += '<span class="text-xs text-emerald-800 font-bold uppercase tracking-wider block mb-1">Total Wajib Ditransfer</span>';
+                        htmlContent += '<div class="flex items-center justify-center gap-2 mt-1">';
+                        htmlContent += '<span class="text-3xl font-black text-emerald-600 font-mono">Rp ' + totalFmt + '</span>';
+                        htmlContent += '<button type="button" onclick="window.copyToClipboard(\'' + (data.total_amount || data.amount) + '\', \'Nominal Transfer\')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold transition shadow cursor-pointer" title="Salin Nominal">📋 Salin</button>';
+                        htmlContent += '</div>';
+                        if (uniqueCode > 0) {
+                            htmlContent += '<p class="text-[11px] text-emerald-700 mt-2">*Harap transfer <b>TEPAT SEJUMLAH INI</b> (termasuk kode unik <b>' + uniqueCode + '</b>) agar Admin dapat memverifikasi dana Anda dengan cepat.</p>';
+                        }
+                        htmlContent += '</div>';
+
+                        htmlContent += '<p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Pilihan Rekening &amp; E-Wallet Tujuan:</p>';
+                        htmlContent += '<div class="space-y-2.5 mb-4">';
+
+                        // Bank BSI
+                        htmlContent += '<div class="p-3.5 rounded-2xl border ' + (isBsiChosen ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-300' : 'border-slate-200 bg-slate-50') + ' transition">';
+                        htmlContent += '<div class="flex items-center justify-between">';
+                        htmlContent += '<div class="flex items-center gap-2.5"><span class="text-2xl">🏦</span><div><h4 class="font-extrabold text-slate-900 text-sm">Bank BSI (Bank Syariah Indonesia)</h4><p class="text-xs text-slate-600">A/N: <b class="text-slate-900">' + bsiName + '</b></p></div></div>';
+                        htmlContent += '<button type="button" onclick="window.copyToClipboard(\'' + bsiRek + '\', \'No. Rekening BSI\')" class="bg-white border border-slate-300 hover:border-sky-500 text-slate-800 font-mono font-bold text-xs py-1.5 px-3 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"><span>' + bsiRek + '</span> 📋</button>';
+                        htmlContent += '</div></div>';
+
+                        // DANA
+                        htmlContent += '<div class="p-3.5 rounded-2xl border ' + (isDanaChosen ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-300' : 'border-slate-200 bg-slate-50') + ' transition">';
+                        htmlContent += '<div class="flex items-center justify-between">';
+                        htmlContent += '<div class="flex items-center gap-2.5"><span class="text-2xl">📱</span><div><h4 class="font-extrabold text-slate-900 text-sm">DANA</h4><p class="text-xs text-slate-600">A/N: <b class="text-slate-900">' + danaName + '</b></p></div></div>';
+                        htmlContent += '<button type="button" onclick="window.copyToClipboard(\'' + danaRek + '\', \'Nomor DANA\')" class="bg-white border border-slate-300 hover:border-sky-500 text-slate-800 font-mono font-bold text-xs py-1.5 px-3 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"><span>' + danaRek + '</span> 📋</button>';
+                        htmlContent += '</div></div>';
+
+                        // Shopee / ShopeePay
+                        htmlContent += '<div class="p-3.5 rounded-2xl border ' + (isShopeeChosen ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-300' : 'border-slate-200 bg-slate-50') + ' transition">';
+                        htmlContent += '<div class="flex items-center justify-between">';
+                        htmlContent += '<div class="flex items-center gap-2.5"><span class="text-2xl">🛍️</span><div><h4 class="font-extrabold text-slate-900 text-sm">Shopee / ShopeePay</h4><p class="text-xs text-slate-600">A/N: <b class="text-slate-900">' + shopeeName + '</b></p></div></div>';
+                        htmlContent += '<button type="button" onclick="window.copyToClipboard(\'' + shopeeRek + '\', \'Nomor Shopee\')" class="bg-white border border-slate-300 hover:border-sky-500 text-slate-800 font-mono font-bold text-xs py-1.5 px-3 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"><span>' + shopeeRek + '</span> 📋</button>';
+                        htmlContent += '</div></div>';
+
+                        htmlContent += '</div>';
+
+                        htmlContent += '<div class="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl mb-3 text-xs text-amber-900 leading-relaxed">';
+                        htmlContent += '<b>📌 Langkah Konfirmasi:</b><br>';
+                        htmlContent += '1. Transfer <b>Rp ' + totalFmt + '</b> ke salah satu rekening di atas.<br>';
+                        htmlContent += '2. Simpan struk / tangkapan layar bukti transfer.<br>';
+                        htmlContent += '3. Klik tombol hijau <b>"Konfirmasi via WhatsApp"</b> di bawah untuk kirim bukti ke CS. Saldo akan ditambahkan oleh Admin secara manual.';
+                        htmlContent += '</div>';
+                        htmlContent += '<div class="text-[11px] text-slate-400 font-mono text-center">Ref: ' + ref + '</div>';
+                        htmlContent += '</div>';
+
+                        swalDark.fire({
+                            title: 'Transfer Manual Top Up',
+                            html: htmlContent,
+                            showCancelButton: true,
+                            confirmButtonText: '💬 Konfirmasi via WhatsApp',
+                            cancelButtonText: 'Tutup / Bayar Nanti',
+                            confirmButtonColor: '#10b981',
+                            cancelButtonColor: '#64748b',
+                            focusConfirm: true
+                        }).then((res) => {
+                            if (res.isConfirmed) {
+                                let destStr = 'Bank BSI / DANA / Shopee';
+                                if (isBsiChosen) destStr = 'Bank BSI (' + bsiRek + ' a.n ' + bsiName + ')';
+                                else if (isDanaChosen) destStr = 'DANA (' + danaRek + ' a.n ' + danaName + ')';
+                                else if (isShopeeChosen) destStr = 'Shopee (' + shopeeRek + ' a.n ' + shopeeName + ')';
+
+                                const waMsg = [
+                                    'Halo Admin AwanPulsa, saya sudah melakukan transfer untuk Top Up Saldo:',
+                                    '',
+                                    '• No. Ref: ' + ref,
+                                    '• Email Akun: ' + USER_EMAIL,
+                                    '• Nominal Transfer: Rp ' + totalFmt,
+                                    '• Rekening Tujuan: ' + destStr,
+                                    '',
+                                    'Berikut saya lampirkan bukti transfernya. Mohon bantuannya untuk menambahkan saldo akun saya secara manual. Terima kasih!'
+                                ].join(String.fromCharCode(10));
+
+                                window.open('https://wa.me/628979527685?text=' + encodeURIComponent(waMsg), '_blank');
+                            }
+                        });
+                    }
+
                     async function topUp() {
                         try {
                             const lockUntil = parseInt(localStorage.getItem('wp_topup_lock_until') || '0', 10);
@@ -7828,25 +8028,6 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                         const method = methodEl ? methodEl.value : 'none';
 
                         if (method === 'none') return swalDark.fire('Gagal', 'Pembayaran sedang dinonaktifkan Admin.', 'error');
-                        if (method === 'manual') {
-                            const uniqueCode = Math.floor(Math.random() * 99) + 1;
-                            const finalAmount = parseInt(amount) + uniqueCode;
-
-                            swalDark.fire({
-                                title: 'QRIS Pembayaran Manual',
-                                html: '<p class="mb-4 text-sm text-slate-700">Silakan transfer <b>TEPAT SEJUMLAH</b> <b class="text-emerald-600 text-xl">Rp ' + finalAmount.toLocaleString('id-ID') + '</b> ke QRIS di bawah ini.</p>' +
-                                      '<p class="text-xs text-amber-800 mb-4 bg-amber-50 p-2.5 rounded-lg border border-amber-200 shadow-sm">*Angka unik <b>' + uniqueCode + '</b> di belakang ditambahkan otomatis agar Admin dapat memverifikasi dana Anda lebih cepat.</p>' +
-                                      '<img src="/qris-manual.jpg" alt="QRIS Manual" class="mx-auto rounded-xl w-64 mb-4 shadow-md border border-slate-200">' +
-                                      '<p class="text-xs text-slate-500 mb-2">Setelah transfer selesai, wajib klik tombol di bawah ini untuk mengirimkan <b>Bukti Transfer</b> kepada Admin melalui WhatsApp.</p>',
-                                showCancelButton: true, confirmButtonText: 'Konfirmasi via WA', cancelButtonText: 'Batal', confirmButtonColor: '#22c55e'
-                            }).then((res) => {
-                                if (res.isConfirmed) {
-                                    const waMsg = ['Halo Admin, saya ingin konfirmasi Top Up saldo.', 'Email Akun: ' + USER_EMAIL, 'Nominal: Rp ' + finalAmount.toLocaleString('id-ID'), 'Metode: QRIS Manual', '', 'Berikut adalah bukti transfer saya:'].join(String.fromCharCode(10));
-                                    window.open('https://wa.me/6285240260221?text=' + encodeURIComponent(waMsg), '_blank');
-                                }
-                            });
-                            return;
-                        }
 
                         const btn = document.getElementById('btnTopup');
                         btn.innerText = '⏳ Memproses...'; btn.disabled = true;
@@ -7856,11 +8037,14 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                             if (res.status === 429 && data.locked) {
                                 lockTopupButton(data.remaining_seconds || 30);
                                 swalDark.fire('Proteksi Anti Double-Click', data.message, 'warning');
+                                btn.innerText = 'Top Up'; btn.disabled = false;
                                 return;
                             }
                             if(data.success) {
-                                lockTopupButton(30);
-                                if (data.method === 'shopeepay' || data.method === 'gopay') {
+                                lockTopupButton(15);
+                                if (data.method === 'manual') {
+                                    showManualTopupModal(data);
+                                } else if (data.method === 'shopeepay' || data.method === 'gopay') {
                                     showAutoGoPayModal(data);
                                 } else if (data.checkout_url) {
                                     window.location.href = data.checkout_url;
@@ -7869,10 +8053,10 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 }
                             } else {
                                 swalDark.fire('Gagal', data.message, 'error');
-                                btn.innerText = 'Top Up'; btn.disabled = false;
                             }
                         } catch(e) {
                             swalDark.fire('Error', 'Gagal menghubungi server.', 'error');
+                        } finally {
                             btn.innerText = 'Top Up'; btn.disabled = false;
                         }
                     }
@@ -8451,6 +8635,59 @@ Waktu: ${getWIBTime()}`, appSettings);
         if (typeof amount !== "number" || isNaN(amount) || amount < 1e3 || amount > 1e7 || !Number.isInteger(amount)) {
           return jsonResponse({ success: false, message: "Nominal top up tidak valid. Minimal Rp 1.000 dan Maksimal Rp 10.000.000." }, 400);
         }
+        if (!selectedMethod || selectedMethod.startsWith("manual")) {
+          // Cari kode unik yang belum dipakai oleh invoice UNPAID saat ini untuk menghindari benturan
+          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 1, amount + 999).all().catch(() => ({ results: [] }));
+          const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
+          let uniqueCode = Math.floor(Math.random() * 99) + 1;
+          for (let attempt = 0; attempt < 100; attempt++) {
+            if (!usedAmounts.has(amount + uniqueCode)) break;
+            uniqueCode = Math.floor(Math.random() * 99) + 1;
+          }
+          const nominalUnik = amount + uniqueCode;
+          const refKode = `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+          const bsiRek = appSettings.manual_bsi_rek || "7293609009";
+          const bsiName = appSettings.manual_bsi_name || "sutroni soga";
+          const danaRek = appSettings.manual_dana_rek || "08979527685";
+          const danaName = appSettings.manual_dana_name || "sutroni soga";
+          const shopeeRek = appSettings.manual_shopee_rek || "08979527685";
+          const shopeeName = appSettings.manual_shopee_name || "hasnasyukur";
+
+          let subLabel = "Transfer Manual";
+          if (selectedMethod === "manual_bsi") subLabel = `Bank BSI (${bsiRek} a.n ${bsiName})`;
+          else if (selectedMethod === "manual_dana") subLabel = `DANA (${danaRek} a.n ${danaName})`;
+          else if (selectedMethod === "manual_shopee") subLabel = `Shopee / ShopeePay (${shopeeRek} a.n ${shopeeName})`;
+
+          await env.DB.prepare("INSERT INTO invoices (ref, email, amount, status, date) VALUES (?, ?, ?, 'UNPAID', ?)").bind(refKode, currentUser.email, nominalUnik, getWIBTime()).run();
+
+          const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via <b>${subLabel}</b> sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b> (Termasuk kode unik Rp ${uniqueCode}).<br><br><b>Pilihan Rekening/E-Wallet Tujuan Transfer:</b><br>• <b>Bank BSI:</b> <code>${bsiRek}</code> (a.n ${bsiName})<br>• <b>DANA:</b> <code>${danaRek}</code> (a.n ${danaName})<br>• <b>Shopee / ShopeePay:</b> <code>${shopeeRek}</code> (a.n ${shopeeName})<br><br>Setelah berhasil transfer, silakan konfirmasi bukti transfer via WhatsApp ke CS <a href="https://wa.me/628979527685?text=${encodeURIComponent(`Halo Admin AwanPulsa, saya sudah transfer Top Up Saldo Rp ${nominalUnik.toLocaleString("id-ID")} (Ref: ${refKode}) untuk akun ${currentUser.email}. Berikut bukti transfernya:`)}" target="_blank" class="text-green-400 font-bold underline">08979527685</a> agar saldo Anda segera diisikan secara manual oleh Admin.<br><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span>`;
+
+          await env.DB.prepare("INSERT INTO inbox (email, title, message, date, read) VALUES (?, ?, ?, ?, 0)").bind(currentUser.email, `[PENDING] Top Up Saldo Manual`, pendingMsg, getWIBTime()).run();
+
+          ctx.waitUntil(sendTelegramLog("🧾 LOG CREATE TOP UP MANUAL", `User <b>${currentUser.email}</b> membuat tagihan Top Up Saldo Transfer Manual.
+
+Nominal: Rp ${nominalUnik.toLocaleString("id-ID")} (Termasuk Kode Unik Rp ${uniqueCode})
+Pilihan: ${subLabel}
+Ref: ${refKode}
+Status: UNPAID PENDING (Menunggu Bukti Transfer via WhatsApp CS)`, appSettings));
+
+          return jsonResponse({
+            success: true,
+            method: "manual",
+            sub_method: selectedMethod || "manual",
+            ref: refKode,
+            amount,
+            unique_code: uniqueCode,
+            total_amount: nominalUnik,
+            bsi_rek: bsiRek,
+            bsi_name: bsiName,
+            dana_rek: danaRek,
+            dana_name: danaName,
+            shopee_rek: shopeeRek,
+            shopee_name: shopeeName
+          });
+        }
         if (selectedMethod === "shopeepay" || selectedMethod === "auto") {
           // Cari kode unik yang belum dipakai oleh invoice UNPAID saat ini untuk menghindari benturan
           const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 1, amount + 999).all().catch(() => ({ results: [] }));
@@ -8731,6 +8968,14 @@ Stack: ${e.stack || ""}`, appSettings);
           // Hapus pesan pending inbox jika faktur sudah PAID
           await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND message LIKE ?").bind(currentUser.email, "%" + ref + "%").run().catch(() => {});
           return jsonResponse({ success: true, status: "PAID", message: "Pembayaran telah berhasil diverifikasi!" });
+        }
+
+        if (ref.startsWith("MANUAL-")) {
+          return jsonResponse({
+            success: true,
+            status: "UNPAID",
+            message: "Tagihan Transfer Manual sedang menunggu verifikasi Admin. Pastikan Anda telah mengirimkan bukti transfer ke WhatsApp CS (08979527685)."
+          });
         }
 
         let isPaid = false;
