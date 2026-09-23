@@ -4,9 +4,9 @@
  */
 
 const DEFAULT_BASE_URL = 'https://app.tupo.my.id';
-const DEFAULT_USERID = '178082835085';
-const DEFAULT_PIN = '650502';
-const DEFAULT_PASS = '35098019';
+const DEFAULT_USERID = '178375739934';
+const DEFAULT_PIN = '210284';
+const DEFAULT_PASS = '71377019';
 
 // Pastikan koneksi outbound Node.js memprioritaskan IPv4
 const dns = require('dns');

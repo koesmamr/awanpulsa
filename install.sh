@@ -174,6 +174,15 @@ if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
     sed -i "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}|g" "$APP_DIR/.env"
 fi
 
+# Pastikan kredensial resmi Toko Gorontalo terpasang di .env
+if [ -f "$APP_DIR/.env" ]; then
+    sed -i "s|TOKOGORONTALO_BASE_URL=.*|TOKOGORONTALO_BASE_URL=https://app.tupo.my.id|g" "$APP_DIR/.env"
+    sed -i "s|TOKOGORONTALO_USERID=.*|TOKOGORONTALO_USERID=178375739934|g" "$APP_DIR/.env"
+    sed -i "s|TOKOGORONTALO_PIN=.*|TOKOGORONTALO_PIN=210284|g" "$APP_DIR/.env"
+    sed -i "s|TOKOGORONTALO_PASS=.*|TOKOGORONTALO_PASS=71377019|g" "$APP_DIR/.env"
+    echo -e "${GREEN}   Kredensial Toko Gorontalo (178375739934) berhasil dipasang ke .env.${NC}"
+fi
+
 # 8. Konfigurasi Nginx Virtual Host Khusus AwanPulsa (DILARANG default_server!)
 echo -e "${YELLOW}==> [7/7] Mengonfigurasi Nginx Virtual Host AwanPulsa (Port ${APP_PORT})...${NC}"
 
