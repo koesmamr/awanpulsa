@@ -290,7 +290,7 @@ function buildEmailTemplate(title, bodyContent) {
                 <img src="${logoUrl}" alt="Logo AwanPulsa">
                 <div style="display:inline-block;vertical-align:middle;margin-left:14px;">
                     <h1 style="margin:0;font-size:22px;color:#ffffff;line-height:1.2;font-weight:800;">AwanPulsa</h1>
-                    <span style="font-size:11px;color:#fcd34d;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:block;">✦ Cendana ✦</span>
+                    <span style="font-size:11px;color:#fcd34d;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:block;">✦ Awan Jaya Celluler ✦</span>
                 </div>
             </div>
             <div class="content">
@@ -5926,15 +5926,16 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
         console.error('Gagal memuat logo/favicon:', errLogo.message);
       }
     }
-    if (path === "/qris-manual.jpg" || path === "/qris-shopee.jpg" || path === "/qris-gopay.jpg") {
+    if (path === "/qris-manual.jpg" || path === "/qris-shopee.jpg" || path === "/qris-gopay.jpg" || path === "/outlet-awanjaya.jpg" || path === "/outlet.jpg") {
       try {
         const fsModule = require('fs');
         const pathModule = require('path');
         const fileName = path.replace('/', '');
-        const qrisFile = pathModule.join(__dirname, fileName);
-        if (fsModule.existsSync(qrisFile)) {
-          const qrisBuffer = fsModule.readFileSync(qrisFile);
-          return new Response(qrisBuffer, {
+        const actualFile = (fileName === 'outlet.jpg' || fileName === 'outlet-awanjaya.jpg') ? 'outlet-awanjaya.jpg' : fileName;
+        const targetFile = pathModule.join(__dirname, actualFile);
+        if (fsModule.existsSync(targetFile)) {
+          const buffer = fsModule.readFileSync(targetFile);
+          return new Response(buffer, {
             headers: {
               "Content-Type": "image/jpeg",
               "Cache-Control": "public, max-age=86400"
@@ -6017,7 +6018,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 </div>
                                 <div>
                                     <span class="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-sky-800 to-blue-900 block leading-tight">AwanPulsa</span>
-                                    <span class="text-[10px] uppercase font-bold tracking-widest text-amber-600 block">✦ Cendana ✦</span>
+                                    <span class="text-[10px] uppercase font-bold tracking-widest text-amber-600 block">✦ Awan Jaya Celluler ✦</span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
@@ -6538,7 +6539,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <img src="${LOGO_URL}" alt="Logo" class="w-9 h-9 rounded-full border border-slate-200 object-contain shadow-xs bg-white">
                                 <div>
                                     <span class="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-600 to-blue-700 block leading-tight">AwanPulsa</span>
-                                    <span class="text-[10px] font-bold text-amber-500 tracking-wider uppercase block">✦ Cendana ✦</span>
+                                    <span class="text-[10px] font-bold text-amber-500 tracking-wider uppercase block">✦ Awan Jaya Celluler ✦</span>
                                 </div>
                             </a>
                             <button onclick="toggleSidebar()" class="md:hidden text-slate-500 hover:text-slate-800 p-1 rounded-lg hover:bg-slate-100 transition">
@@ -6667,7 +6668,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <img src="${LOGO_URL}" alt="Logo" class="w-10 h-10 md:w-11 md:h-11 rounded-full border border-slate-200 shadow-sm group-hover:border-sky-500 transition duration-300 object-contain bg-white">
                                 <div>
                                     <span class="text-xl md:text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-700 block leading-tight">AwanPulsa</span>
-                                    <span class="text-[10px] md:text-[11px] font-bold text-amber-500 uppercase tracking-widest block">✦ Cendana ✦</span>
+                                    <span class="text-[10px] md:text-[11px] font-bold text-amber-500 uppercase tracking-widest block">✦ Awan Jaya Celluler ✦</span>
                                 </div>
                             </a>
                             <div class="hidden md:flex gap-7 items-center text-sm font-semibold">
@@ -6703,7 +6704,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                     <img src="${LOGO_URL}" alt="Logo" class="w-9 h-9 rounded-full border border-slate-200 object-contain bg-white">
                                     <div>
                                         <h3 class="text-xl font-bold text-sky-600 leading-tight">AwanPulsa</h3>
-                                        <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">✦ Cendana ✦</span>
+                                        <span class="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">✦ Awan Jaya Celluler ✦</span>
                                     </div>
                                 </div>
                                 <p class="text-slate-600 leading-relaxed text-sm">Pusat layanan Beli Pulsa All Operator, Paket Kuota Internet, Token Listrik PLN, dan Top Up Saldo E-Wallet otomatis 24 Jam dengan harga agen termurah dan transaksi instan.</p>
@@ -7062,7 +7063,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
             <h1 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
                 Awan <span>Pulsa</span>
             </h1>
-            <p class="text-xs font-bold tracking-widest text-amber-500 uppercase mt-1 mb-3">✦ Cendana ✦</p>
+            <p class="text-xs font-bold tracking-widest text-amber-500 uppercase mt-1 mb-3">✦ Awan Jaya Celluler ✦</p>
             <p class="text-xs md:text-sm text-slate-600 leading-relaxed mb-8">Silakan masuk menggunakan akun Google Anda untuk mengakses dashboard, isi saldo otomatis, dan bertransaksi Pulsa & PPOB 24 Jam nonstop.</p>
 
             <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 mb-7 flex flex-col items-center justify-center shadow-inner">
@@ -7156,7 +7157,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <h3 class="text-2xl font-black text-slate-900 tracking-tight mb-1">
                                     Masuk ke <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-blue-600">AwanPulsa</span>
                                 </h3>
-                                <p class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">✦ Cendana ✦</p>
+                                <p class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">✦ Awan Jaya Celluler ✦</p>
                                 <p class="text-xs md:text-sm text-slate-500 mb-6 leading-relaxed">
                                     Masuk menggunakan akun Google dengan 1 klik untuk mulai mengisi saldo otomatis dan bertransaksi 24 jam nonstop.
                                 </p>
@@ -7316,6 +7317,82 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 </div>
                                 <h3 class="text-xl font-bold text-slate-900 mb-3">Deposit QRIS Otomatis</h3>
                                 <p class="text-slate-600 text-sm leading-relaxed">Pengisian saldo akun instan via QRIS Nasional (BCA, Mandiri, BRI, BNI, Dana, ShopeePay, GoPay) yang otomatis masuk dalam hitungan detik 24 jam.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section: Gerai Fisik Resmi Awan Jaya Celluler -->
+                <div class="py-16 md:py-20 bg-gradient-to-b from-slate-50 to-white relative z-10 border-b border-slate-200/80">
+                    <div class="max-w-6xl mx-auto px-4">
+                        <div class="bg-gradient-to-br from-slate-900 via-sky-950 to-blue-950 rounded-3xl md:rounded-[2.5rem] p-6 md:p-12 text-white shadow-2xl relative overflow-hidden border border-sky-900/50">
+                            <!-- Background glow decor -->
+                            <div class="absolute -top-24 -right-24 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                            <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative z-10">
+                                <!-- Foto Outlet Fisik -->
+                                <div class="lg:col-span-6">
+                                    <div class="relative group">
+                                        <div class="absolute -inset-1 bg-gradient-to-r from-sky-400 to-blue-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+                                        <div class="relative rounded-2xl md:rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-800">
+                                            <img src="/outlet-awanjaya.jpg" alt="Gerai Fisik Awan Jaya Celluler" class="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500">
+                                            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 md:p-6 text-white">
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/90 text-white backdrop-blur-sm mb-1.5">
+                                                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> Gerai Fisik Resmi
+                                                </span>
+                                                <h4 class="text-lg md:text-xl font-black">Awan Jaya Celluler</h4>
+                                                <p class="text-xs md:text-sm text-slate-200">Pusat Layanan Pulsa, Paket Data, QRIS &amp; PPOB Terpercaya</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Konten Deskripsi & Layanan -->
+                                <div class="lg:col-span-6 space-y-5">
+                                    <div>
+                                        <span class="text-xs font-extrabold text-sky-400 uppercase tracking-widest bg-sky-950/80 border border-sky-400/30 px-3.5 py-1.5 rounded-full inline-block mb-3">
+                                            🏢 Toko Fisik Terverifikasi
+                                        </span>
+                                        <h3 class="text-2xl md:text-4xl font-black tracking-tight leading-tight">
+                                            Didukung Gerai Resmi <br class="hidden sm:inline"><span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300">Awan Jaya Celluler</span>
+                                        </h3>
+                                        <p class="text-slate-300 text-sm md:text-base leading-relaxed mt-3">
+                                            Layanan <strong>AwanPulsa</strong> hadir memberikan solusi transaksi digital terpercaya yang didukung langsung oleh toko fisik <strong>Awan Jaya Celluler</strong>. Transaksi cepat, aman, dan bergaransi penuh baik langsung di gerai maupun secara online 24 jam nonstop.
+                                        </p>
+                                    </div>
+
+                                    <!-- Grid Layanan Toko -->
+                                    <div class="grid grid-cols-2 gap-3 pt-1">
+                                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                                            <div class="text-sky-400 font-bold text-sm mb-1">⚡ Pulsa &amp; Paket Data</div>
+                                            <div class="text-xs text-slate-400">Telkomsel, Indosat, XL, Axis, Tri, Smartfren</div>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                                            <div class="text-emerald-400 font-bold text-sm mb-1">📲 Bayar Pakai QRIS</div>
+                                            <div class="text-xs text-slate-400">Semua Bank, GoPay, ShopeePay, DANA, OVO</div>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                                            <div class="text-amber-400 font-bold text-sm mb-1">💳 Transfer &amp; Kirim Uang</div>
+                                            <div class="text-xs text-slate-400">BRI, Mandiri, BNI, BCA &amp; Virtual Account</div>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                                            <div class="text-cyan-400 font-bold text-sm mb-1">💡 Token Listrik &amp; PPOB</div>
+                                            <div class="text-xs text-slate-400">PLN, PDAM, BPJS, TV Kabel, WiFi &amp; Game</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-2 flex flex-wrap gap-3 items-center">
+                                        <a href="/pulsa-ppob" class="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg shadow-sky-500/25 transition-all duration-200 text-sm">
+                                            <span>Mulai Transaksi Online</span>
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                        </a>
+                                        <span class="text-xs text-slate-400 flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                            Buka Setiap Hari
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
