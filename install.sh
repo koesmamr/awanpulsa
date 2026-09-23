@@ -158,7 +158,15 @@ EOF
     chmod 600 "$APP_DIR/.env"
     echo -e "${GREEN}   File .env berhasil dibuat di $APP_DIR/.env${NC}"
 else
-    echo -e "${GREEN}   File .env sudah ada, mempertahankan konfigurasi lama.${NC}"
+    echo -e "${GREEN}   File .env sudah ada, memastikan kredensial sistem terpasang...${NC}"
+fi
+
+# Perbarui Google OAuth jika variabel diberikan saat eksekusi installer
+if [ -n "$GOOGLE_CLIENT_ID" ]; then
+    sed -i "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|g" "$APP_DIR/.env"
+fi
+if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+    sed -i "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}|g" "$APP_DIR/.env"
 fi
 
 # 8. Konfigurasi Nginx Virtual Host Khusus AwanPulsa (DILARANG default_server!)
