@@ -2531,6 +2531,25 @@ function renderPPOBContent(currentUser, appSettings, env) {
       }
 
       function handleCardClick(productCode) {
+          if (!isUserLoggedIn) {
+              const product = cachedProducts.find(p => p.product_code === productCode);
+              const prodName = product ? product.product_name : 'produk ini';
+              swalDark.fire({
+                  title: 'Silakan Masuk Terlebih Dahulu',
+                  html: \`Untuk membeli <b>\${escapeHtmlClient(prodName)}</b>, Anda perlu masuk ke akun terlebih dahulu.<br><br><span class="text-xs text-slate-500">Cukup 1-klik masuk dengan akun Google tanpa ribet.</span>\`,
+                  icon: 'info',
+                  showCancelButton: true,
+                  confirmButtonText: 'Masuk Sekarang',
+                  cancelButtonText: 'Nanti Saja',
+                  confirmButtonColor: '#0284c7'
+              }).then(res => {
+                  if (res.isConfirmed) {
+                      window.location.href = '/login';
+                  }
+              });
+              return;
+          }
+
           if (isTrxLocked()) {
               const rem = getTrxRemainingSeconds();
               swalDark.fire({
@@ -2546,6 +2565,23 @@ function renderPPOBContent(currentUser, appSettings, env) {
       }
 
       async function confirmOrder(productCode) {
+          if (!isUserLoggedIn) {
+              swalDark.fire({
+                  title: 'Silakan Masuk Terlebih Dahulu',
+                  text: 'Anda perlu masuk terlebih dahulu untuk melakukan pembelian.',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonText: 'Masuk Sekarang',
+                  cancelButtonText: 'Batal',
+                  confirmButtonColor: '#0284c7'
+              }).then(res => {
+                  if (res.isConfirmed) {
+                      window.location.href = '/login';
+                  }
+              });
+              return;
+          }
+
           if (isTrxLocked()) {
               const rem = getTrxRemainingSeconds();
               swalDark.fire({
@@ -2612,7 +2648,8 @@ function renderPPOBContent(currentUser, appSettings, env) {
           // Kunci tombol transaksi selama 30 detik setelah diklik
           setTrxLock(30);
 
-          document.getElementById('loadingOverlay').classList.remove('hidden');
+          const overlay = document.getElementById('loadingOverlay');
+          if (overlay) overlay.classList.remove('hidden');
 
           try {
               const res = await fetch('/api/ppob/order', {
@@ -2621,7 +2658,20 @@ function renderPPOBContent(currentUser, appSettings, env) {
                   body: JSON.stringify({ product_code: productCode, customer_no: customerNo })
               });
               const data = await res.json();
-              document.getElementById('loadingOverlay').classList.add('hidden');
+              if (overlay) overlay.classList.add('hidden');
+
+              if (res.status === 401) {
+                  swalDark.fire({
+                      title: 'Silakan Masuk Terlebih Dahulu',
+                      text: data.message || 'Silakan login terlebih dahulu untuk melakukan transaksi.',
+                      icon: 'warning',
+                      confirmButtonText: 'Masuk Sekarang',
+                      confirmButtonColor: '#0284c7'
+                  }).then(() => {
+                      window.location.href = '/login';
+                  });
+                  return;
+              }
 
               if (res.status === 429 && data.locked) {
                   setTrxLock(data.remaining_seconds || 30);

@@ -6628,6 +6628,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                     <link rel="icon" type="image/png" href="${LOGO_URL}">
                     <link rel="apple-touch-icon" href="${LOGO_URL}">
                     <script src="https://cdn.tailwindcss.com"><\/script>
+                    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"><\/script>
                     <script src="https://accounts.google.com/gsi/client" async defer><\/script>
                     <style>
                         .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); } 
@@ -6642,8 +6643,29 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                             animation: pulseHamburger 2s infinite ease-in-out;
                         }
                     </style>
+                    <script>
+                        // Globalisasi Konfigurasi SwalDark untuk Layout Publik
+                        const swalDark = Swal.mixin({ background: '#ffffff', color: '#0f172a', confirmButtonColor: '#0284c7', cancelButtonColor: '#64748b', customClass: { popup: 'border border-slate-200 rounded-2xl shadow-2xl' } });
+                        
+                        function escapeHtmlClient(str) {
+                            if (!str) return '';
+                            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+                        }
+                    <\/script>
                 </head>
                 <body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen overflow-x-hidden font-sans relative">
+                    <!-- Fullscreen Loading Overlay for Public Layout -->
+                    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center hidden">
+                        <div class="relative flex items-center justify-center mb-6">
+                            <div class="w-20 h-20 border-4 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+                            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center absolute shadow-lg">
+                                <span class="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-sky-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
+                            </div>
+                        </div>
+                        <h3 class="text-xl font-black text-white tracking-wider uppercase mb-2 animate-pulse">Memproses Pesanan...</h3>
+                        <p class="text-sm text-slate-200 font-medium">Mohon tunggu, jangan tutup atau memuat ulang halaman ini...</p>
+                    </div>
                     <!-- Global Ambient Light Accents for Public Landing -->
                     <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                         <div class="absolute -top-40 -left-40 w-96 h-96 bg-sky-100/70 rounded-full blur-[128px]"></div>
@@ -6722,7 +6744,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <h4 class="font-bold text-slate-900 mb-4 uppercase tracking-wider text-sm">Layanan Pelanggan (CS)</h4>
                                 <p class="text-sm text-slate-600 mb-3">Jika mengalami kendala teknis atau transaksi, silakan hubungi CS kami (Arif):</p>
                                 <ul class="space-y-3 text-sm text-slate-700 font-medium">
-                                    <li><a href="https://wa.me/6285240260221" target="_blank" class="flex items-center gap-3 hover:text-emerald-600 transition group"><div class="bg-white border border-slate-200 p-2 rounded-full group-hover:border-emerald-300 shadow-xs"><svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div><span>WhatsApp: 085240260221</span></a>
+                                    <li><a href="https://wa.me/6285240260221" target="_blank" class="flex items-center gap-3 hover:text-emerald-600 transition group"><div class="bg-white border border-slate-200 p-2 rounded-full group-hover:border-emerald-300 shadow-xs"><svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg></div><span>WhatsApp: 085240260221</span></a>
                                     </li>
                                     <li><a href="https://t.me/pejuanggto" target="_blank" class="flex items-center gap-3 hover:text-sky-600 transition group"><div class="bg-white border border-slate-200 p-2 rounded-full group-hover:border-sky-300 shadow-xs"><svg class="w-4 h-4 text-sky-600" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.892-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg></div><span>Telegram: @pejuanggto</span></a></li>
                                     <li><a href="mailto:admin@awanpulsa.web.id" class="flex items-center gap-3 hover:text-rose-600 transition group"><div class="bg-white border border-slate-200 p-2 rounded-full group-hover:border-rose-300 shadow-xs"><svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></div><span>Email: admin@awanpulsa.web.id</span></a></li>
@@ -6881,7 +6903,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                 <div class="mt-12 flex flex-wrap items-center justify-center gap-4">
                     <a href="https://wa.me/6285240260221?text=Halo%20Admin%20AwanPulsa,%20saya%20butuh%20bantuan" target="_blank" class="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-[#25D366]/20 transition-all duration-300 transform hover:-translate-y-0.5">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                         </svg>
                         Hubungi via WhatsApp (085240260221)
                     </a>
