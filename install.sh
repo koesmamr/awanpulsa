@@ -49,6 +49,40 @@ fi
 
 echo -e "${GREEN}  ✓ AwanPulsa akan dipasang di Port ${APP_PORT} (terisolasi) agar semua aplikasi aman 100%.${NC}"
 
+# Bersihkan jika Certbot sempat salah menyuntikkan SSL awanpulsa ke dalam config warungpulsa
+if [ -f "/etc/nginx/sites-available/warungpulsa" ]; then
+    if grep -q "awanpulsa" /etc/nginx/sites-available/warungpulsa; then
+        echo -e "${YELLOW}  ⚠️ Terdeteksi konfigurasi awanpulsa tertempel di warungpulsa. Mengoreksi...${NC}"
+        cp /etc/nginx/sites-available/warungpulsa /etc/nginx/sites-available/warungpulsa.bak_$(date +%s) 2>/dev/null || true
+        cat > /etc/nginx/sites-available/warungpulsa << 'WP_EOF'
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name warungpulsa.web.id www.warungpulsa.web.id _;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+}
+WP_EOF
+        echo -e "${GREEN}  ✓ Konfigurasi Warung Pulsa berhasil dipulihkan murni ke Port 3000.${NC}"
+    fi
+fi
+
 # 3. Update paket Ubuntu & instal dependensi dasar sistem
 echo -e "${YELLOW}==> [2/7] Memeriksa paket dasar sistem...${NC}"
 export DEBIAN_FRONTEND=noninteractive
@@ -73,7 +107,6 @@ fi
 echo -e "${YELLOW}==> [4/7] Mengunduh source code AwanPulsa dari GitHub (${REPO_URL})...${NC}"
 mkdir -p /var/www
 
-# Cek apakah dijalankan langsung dari folder lokal yang sudah ada file source-nya
 CURRENT_DIR="$(pwd)"
 if [ -f "$CURRENT_DIR/server.js" ] && [ "$CURRENT_DIR" != "$APP_DIR" ]; then
     echo -e "${CYAN}   Menyalin source code dari direktori lokal saat ini ($CURRENT_DIR)...${NC}"
@@ -90,7 +123,7 @@ else
     echo -e "${CYAN}   Meng-clone repository baru ke $APP_DIR...${NC}"
     rm -rf "$APP_DIR"
     git clone "$REPO_URL" "$APP_DIR" || {
-        echo -e "${RED}[ERROR] Gagal clone repo $REPO_URL. Pastikan repository GitHub sudah dibuat dan bersifat Public atau token SSH telah terpasang.${NC}"
+        echo -e "${RED}[ERROR] Gagal clone repo $REPO_URL. Pastikan repository GitHub sudah dibuat dan bersifat Public.${NC}"
         exit 1
     }
     cd "$APP_DIR"
@@ -129,9 +162,13 @@ else
 fi
 
 # 8. Konfigurasi Nginx Virtual Host Khusus AwanPulsa (DILARANG default_server!)
-echo -e "${YELLOW}==> [7/7] Mengonfigurasi Nginx Virtual Host AwanPulsa...${NC}"
+echo -e "${YELLOW}==> [7/7] Mengonfigurasi Nginx Virtual Host AwanPulsa (Port ${APP_PORT})...${NC}"
+
+SSL_CERT="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+SSL_KEY="/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
+
 cat > /etc/nginx/sites-available/awanpulsa << EOF
-# 1. Routing Domain Resmi AwanPulsa
+# 1. Routing HTTP Port 80
 server {
     listen 80;
     listen [::]:80;
@@ -156,7 +193,7 @@ server {
     }
 }
 
-# 2. Akses Direct IP Port ${ALT_PORT} (Dapat diakses sebelum DNS domain selesai disetting)
+# 2. Akses Direct IP Port ${ALT_PORT} (Dapat diakses langsung via IP VPS)
 server {
     listen ${ALT_PORT};
     listen [::]:${ALT_PORT};
@@ -182,14 +219,51 @@ server {
 }
 EOF
 
-# Aktifkan site Nginx khusus awanpulsa (tidak menyentuh file default atau web lain)
+# Jika sertifikat SSL sudah pernah digenerate oleh Certbot, sertakan blok HTTPS Port 443
+if [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
+    echo -e "${GREEN}   Sertifikat SSL Let's Encrypt terdeteksi untuk ${DOMAIN}! Mengaktifkan blok HTTPS...${NC}"
+    cat >> /etc/nginx/sites-available/awanpulsa << EOF
+
+# 3. Routing HTTPS Port 443 Resmi AwanPulsa -> Port ${APP_PORT}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:${APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+}
+EOF
+fi
+
+# Aktifkan site Nginx khusus awanpulsa
 ln -sf /etc/nginx/sites-available/awanpulsa /etc/nginx/sites-enabled/awanpulsa
 
 # Validasi & reload Nginx
 nginx -t && systemctl reload nginx
 
 # 9. Jalankan proses PM2 khusus 'awanpulsa'
-echo -e "${YELLOW}==> Menjalankan AwanPulsa via PM2 (Port ${APP_PORT})...${NC}"
+echo -e "${YELLOW}==> Memastikan proses PM2 AwanPulsa aktif (Port ${APP_PORT})...${NC}"
 cd "$APP_DIR"
 pm2 delete awanpulsa 2>/dev/null || true
 pm2 start ecosystem.config.js
@@ -204,27 +278,18 @@ SERVER_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "IP_VPS_ANDA")
 
 echo ""
 echo -e "${GREEN}=================================================================="
-echo "  🎉 AUTOINSTALL AWANPULSA BERHASIL SELESAI!"
+echo "  🎉 AUTOINSTALL AWANPULSA BERHASIL DIPERBARUI!"
 echo "==================================================================${NC}"
 echo -e "Web AwanPulsa Anda sekarang sudah AKTIF di server VPS!"
 echo ""
-echo -e "👉 ${CYAN}Akses Langsung via IP (Sebelum DNS domain aktif):${NC}"
-echo -e "   ${YELLOW}http://${SERVER_IP}:${ALT_PORT}${NC}"
+echo -e "👉 ${CYAN}Akses Domain Resmi (HTTPS):${NC}"
+echo -e "   ${YELLOW}https://${DOMAIN}${NC}"
 echo ""
-echo -e "👉 ${CYAN}Akses Domain Resmi (Setelah DNS disetting):${NC}"
-echo -e "   ${YELLOW}http://${DOMAIN}${NC}"
+echo -e "👉 ${CYAN}Akses Alternatif Direct IP:${NC}"
+echo -e "   ${YELLOW}http://${SERVER_IP}:${ALT_PORT}${NC}"
 echo ""
 echo "📌 Lokasi instalasi : /var/www/awanpulsa"
 echo "📌 Status PM2       : ketik 'pm2 status' atau 'pm2 logs awanpulsa'"
 echo "📌 Edit Konfigurasi : nano /var/www/awanpulsa/.env"
 echo "📌 Terapkan Edit    : pm2 restart awanpulsa"
-echo "📌 Sinkron Katalog  : Buka Admin di /admin#tokogorontalo lalu klik 'Sinkronkan Katalog Produk'"
-echo "📌 Whitelist IP VPS : Daftarkan IP (${SERVER_IP}) ke Admin / CS Toko Gorontalo"
-echo ""
-echo -e "${MAGENTA}🔐 CARA HUBUNGKAN DOMAIN & AKTIFKAN SSL (HTTPS):${NC}"
-echo "1. Di dashboard domain ${DOMAIN}, buat DNS A Record:"
-echo "   - Host: @   -> Value: ${SERVER_IP}"
-echo "   - Host: www -> Value: ${SERVER_IP}"
-echo "2. Setelah DNS mengarah ke IP ini, jalankan perintah SSL gratis:"
-echo "   certbot --nginx -d ${DOMAIN} -d www.${DOMAIN}"
 echo "=================================================================="
