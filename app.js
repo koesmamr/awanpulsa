@@ -5782,7 +5782,7 @@ __name2(checkGoPayStatus, "checkGoPayStatus");
 __name22(checkGoPayStatus, "checkGoPayStatus");
 __name222(checkGoPayStatus, "checkGoPayStatus");
 var GOOGLE_CLIENT_ID = (typeof process !== "undefined" && process.env && process.env.GOOGLE_CLIENT_ID) || "727817597785-oub85kbvvsl640v7q4cak661vn5jt7kh.apps.googleusercontent.com";
-var LOGO_URL = (typeof process !== "undefined" && process.env && process.env.LOGO_URL) || "/logo.png";
+var LOGO_URL = (typeof process !== "undefined" && process.env && process.env.LOGO_URL) || "/logo-awanpulsa.png?v=2026";
 var worker_default = {
   async scheduled(event, env, ctx) {
     const appSettings = await getAppSettings(env);
@@ -5903,7 +5903,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-    if (path === "/logo.png" || path === "/favicon.ico") {
+    if (path === "/logo.png" || path === "/logo-awanpulsa.png" || path === "/favicon.ico") {
       try {
         const fsModule = require('fs');
         const pathModule = require('path');
@@ -5918,7 +5918,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
           return new Response(fileBuffer, {
             headers: {
               "Content-Type": isFavicon && targetFilePath.endsWith('.ico') ? "image/x-icon" : "image/png",
-              "Cache-Control": "public, max-age=86400"
+              "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"
             }
           });
         }

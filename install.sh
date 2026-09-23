@@ -129,6 +129,11 @@ else
     cd "$APP_DIR"
 fi
 
+# Pastikan logo resmi AwanPulsa terpasang dan sinkron
+if [ -f "$APP_DIR/logo-awanpulsa.png" ]; then
+    cp -f "$APP_DIR/logo-awanpulsa.png" "$APP_DIR/logo.png" 2>/dev/null || true
+fi
+
 # 6. Instal dependensi NPM
 echo -e "${YELLOW}==> [5/7] Menginstal dependensi NPM untuk AwanPulsa...${NC}"
 cd "$APP_DIR"
