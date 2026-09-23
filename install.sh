@@ -51,14 +51,14 @@ echo -e "${GREEN}  ✓ AwanPulsa akan dipasang di Port ${APP_PORT} (terisolasi) 
 
 # Bersihkan jika Certbot sempat salah menyuntikkan SSL awanpulsa ke dalam config warungpulsa
 if [ -f "/etc/nginx/sites-available/warungpulsa" ]; then
-    if grep -q "awanpulsa" /etc/nginx/sites-available/warungpulsa; then
-        echo -e "${YELLOW}  ⚠️ Terdeteksi konfigurasi awanpulsa tertempel di warungpulsa. Mengoreksi...${NC}"
+    if grep -q "awanpulsa" /etc/nginx/sites-available/warungpulsa || ! grep -q "listen 443" /etc/nginx/sites-available/warungpulsa; then
+        echo -e "${YELLOW}  ⚠️ Mengonfigurasi Nginx Warung Pulsa agar terpisah sempurna...${NC}"
         cp /etc/nginx/sites-available/warungpulsa /etc/nginx/sites-available/warungpulsa.bak_$(date +%s) 2>/dev/null || true
         cat > /etc/nginx/sites-available/warungpulsa << 'WP_EOF'
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name warungpulsa.web.id www.warungpulsa.web.id _;
+    listen 80;
+    listen [::]:80;
+    server_name warungpulsa.web.id www.warungpulsa.web.id;
 
     client_max_body_size 50M;
 
@@ -79,6 +79,42 @@ server {
     }
 }
 WP_EOF
+        WP_CERT="/etc/letsencrypt/live/warungpulsa.web.id/fullchain.pem"
+        WP_KEY="/etc/letsencrypt/live/warungpulsa.web.id/privkey.pem"
+        if [ -f "$WP_CERT" ] && [ -f "$WP_KEY" ]; then
+            cat >> /etc/nginx/sites-available/warungpulsa << WP_SSL_EOF
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name warungpulsa.web.id www.warungpulsa.web.id;
+
+    ssl_certificate ${WP_CERT};
+    ssl_certificate_key ${WP_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+}
+WP_SSL_EOF
+            echo -e "${GREEN}  ✓ SSL Warung Pulsa terpasang ke Port 3000.${NC}"
+        fi
         echo -e "${GREEN}  ✓ Konfigurasi Warung Pulsa berhasil dipulihkan murni ke Port 3000.${NC}"
     fi
 fi
