@@ -2721,7 +2721,7 @@ ${isCurrentSuperAdmin ? `
             }
         });
     <\/script>
-    ${renderTokoGorontaloAdminModal()}
+    ${renderTokoGorontaloAdminModal(isCurrentSuperAdmin)}
     `;
 }
 __name(renderAdminDashboard, "renderAdminDashboard");
@@ -3115,6 +3115,9 @@ async function handleAdminRoutes(url, request, env, currentUser, appSettings, se
     }
   }
   if (url.pathname === "/api/admin/toggle-pkg" && request.method === "POST") {
+    if (!isSuperAdmin(currentUser, env)) {
+      return jsonResponse({ success: false, message: "Akses ditolak: Hanya Super Admin yang diizinkan untuk mengubah status paket." }, 403);
+    }
     try {
       const { pkgId, visible } = await request.json();
       let visibilityMap = {};
@@ -3136,6 +3139,9 @@ async function handleAdminRoutes(url, request, env, currentUser, appSettings, se
     }
   }
   if (url.pathname === "/api/admin/save-pkg-desc" && request.method === "POST") {
+    if (!isSuperAdmin(currentUser, env)) {
+      return jsonResponse({ success: false, message: "Akses ditolak: Hanya Super Admin yang diizinkan untuk mengedit deskripsi paket." }, 403);
+    }
     try {
       const { pkgId, description } = await request.json();
       const existing = await env.DB.prepare("SELECT value FROM settings WHERE key = 'pkg_desc'").first();
