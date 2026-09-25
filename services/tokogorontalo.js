@@ -8,26 +8,63 @@ const DEFAULT_USERID = '178375739934';
 const DEFAULT_PIN = '210284';
 const DEFAULT_PASS = '71377019';
 
-// Pastikan koneksi outbound Node.js memprioritaskan IPv4
+// Pastikan koneksi outbound Node.js 100% menggunakan IPv4 murni
 const dns = require('dns');
 if (typeof dns.setDefaultResultOrder === 'function') {
   try { dns.setDefaultResultOrder('ipv4first'); } catch {}
 }
 
-let ipv4Dispatcher = null;
-try {
-  const { Agent } = require('undici');
-  ipv4Dispatcher = new Agent({ connect: { family: 4 } });
-} catch (e) {
-  // undici fallback
-}
+const https = require('https');
+const http = require('http');
 
 function customFetch(url, options = {}) {
-  const opts = { ...options };
-  if (ipv4Dispatcher && !opts.dispatcher) {
-    opts.dispatcher = ipv4Dispatcher;
-  }
-  return fetch(url, opts);
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const isHttps = u.protocol === 'https:';
+    const client = isHttps ? https : http;
+
+    const headers = { ...(options.headers || {}) };
+    let body = options.body;
+    if (body && typeof body === 'object' && !(body instanceof Buffer) && !(body instanceof Uint8Array)) {
+      body = JSON.stringify(body);
+      if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    }
+    if (body) {
+      headers['Content-Length'] = Buffer.byteLength(body);
+    }
+
+    const req = client.request(u, {
+      method: options.method || 'GET',
+      headers,
+      family: 4, // 100% KUNCI KE IPv4 MURNI
+      timeout: options.timeout || 20000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          statusText: res.statusMessage,
+          headers: res.headers,
+          text: async () => data,
+          json: async () => JSON.parse(data)
+        });
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Request timeout ke server provider'));
+    });
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    if (body) {
+      req.write(body);
+    }
+    req.end();
+  });
 }
 
 // XOR encryption key helper sesuai protokol Apiumkm/Atrilinks

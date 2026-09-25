@@ -130,7 +130,7 @@ done
 
 # Validasi Anti-Human-Error: Jangan sampai script dijalankan di VPS Lama itu sendiri
 LOCAL_IPS=$(hostname -I 2>/dev/null || ip addr show 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "")
-PUBLIC_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
+PUBLIC_IP=$(curl -4 -s --max-time 3 ifconfig.me 2>/dev/null || curl -4 -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
 
 for CHECK_IP in $LOCAL_IPS $PUBLIC_IP 127.0.0.1 localhost ::1; do
     if [ -n "$CHECK_IP" ] && [ "$OLD_IP" = "$CHECK_IP" ]; then
@@ -212,8 +212,16 @@ echo -e "${CYAN}----------------------------------------------------------------
 echo -e "${GREEN}Konfigurasi Valid! Memulai proses migrasi otomatis...${NC}"
 echo -e "${CYAN}--------------------------------------------------------------------------------${NC}"
 
-# 5. Instalasi Runtime Dasar di VPS Baru
+# 5. Instalasi Runtime Dasar & Prioritas IPv4 di VPS Baru
 echo -e "${YELLOW}==> [1/5] Memeriksa & Menginstal Runtime Sistem di VPS Baru...${NC}"
+
+# Prioritaskan IPv4 murni di tingkat OS
+if [ -f /etc/gai.conf ]; then
+    sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/g' /etc/gai.conf
+    grep -q "precedence ::ffff:0:0/96  100" /etc/gai.conf || echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+else
+    echo "precedence ::ffff:0:0/96  100" > /etc/gai.conf
+fi
 systemctl stop apache2 2>/dev/null || true
 systemctl disable apache2 2>/dev/null || true
 wait_for_apt
@@ -434,7 +442,7 @@ ufw allow 8080/tcp >/dev/null 2>&1 || true
 ufw allow 8081/tcp >/dev/null 2>&1 || true
 ufw allow 8082/tcp >/dev/null 2>&1 || true
 
-NEW_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "IP_VPS_BARU")
+NEW_IP=$(curl -4 -s --max-time 4 ifconfig.me 2>/dev/null || curl -4 -s --max-time 4 icanhazip.com 2>/dev/null || curl -4 -s --max-time 4 api.ipify.org 2>/dev/null || hostname -I | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | grep -v '127.0.0.1' | head -n 1 || echo "IP_VPS_BARU")
 
 echo ""
 echo -e "${GREEN}================================================================================${NC}"
