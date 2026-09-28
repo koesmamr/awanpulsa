@@ -1914,14 +1914,13 @@ async function handleTokoGorontaloRoutes(url, request, env, currentUser, appSett
 
     // I. Cek IP Public Server VPS (Untuk didaftarkan ke Whitelist Toko Gorontalo)
     if (path === '/api/admin/tokogorontalo/server-ip' && method === 'GET') {
-      let ipv4 = '116.212.74.104';
-      let ipv6 = '2001:df7:5300:23::68';
+      let ipv4 = '202.10.48.188';
       try {
         const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(4000) });
         const ipData = await ipRes.json();
         if (ipData && ipData.ip) ipv4 = ipData.ip;
       } catch (e) {}
-      return jsonResponse({ success: true, ip: ipv4, ipv4, ipv6 });
+      return jsonResponse({ success: true, ip: ipv4, ipv4 });
     }
   }
 
@@ -3310,7 +3309,7 @@ function renderTokoGorontaloAdminModal(isCurrentSuperAdmin = false) {
                           </button>
                       </div>
                       <p id="tgSaldoDisplay" class="text-2xl font-black text-slate-900 font-mono tracking-tight">Memuat...</p>
-                      <p id="tgMemberName" class="text-xs text-slate-500 mt-1">Level-3 APARAT (178082835085)</p>
+                      <p id="tgMemberName" class="text-xs text-slate-500 mt-1">oneng cell (178375739934)</p>
                   </div>
 
                   <!-- Total Produk di Database -->
@@ -3338,8 +3337,10 @@ function renderTokoGorontaloAdminModal(isCurrentSuperAdmin = false) {
                       <p class="text-xs text-slate-600 leading-relaxed">
                           Toko Gorontalo mewajibkan <b>IP Server VPS</b> terdaftar di akun Member Anda. Jika belum terdaftar, API mengembalikan error: <code class="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono text-[11px]">"device anda tidak terdaftar"</code>.
                       </p>
-                      <p class="text-xs text-slate-700 font-medium pt-0.5">
-                          IP Server VPS Anda: <b id="tgServerIpDisplay" class="font-mono text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">Mendeteksi...</b>
+                      <p class="text-xs text-slate-700 font-medium pt-0.5 flex items-center gap-2">
+                          <span>IP Server VPS Anda:</span>
+                          <b id="tgServerIpDisplay" class="font-mono text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">202.10.48.188</b>
+                          <span class="text-[11px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">IPv4 Murni</span>
                       </p>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
@@ -3481,8 +3482,7 @@ function renderTokoGorontaloAdminModal(isCurrentSuperAdmin = false) {
           } catch(e) {}
       }
 
-      let tgDetectedIpv4 = '116.212.74.104';
-      let tgDetectedIpv6 = '2001:df7:5300:23::68';
+      let tgDetectedIpv4 = '202.10.48.188';
 
       async function loadTgServerIp() {
           try {
@@ -3491,15 +3491,13 @@ function renderTokoGorontaloAdminModal(isCurrentSuperAdmin = false) {
               const displayEl = document.getElementById('tgServerIpDisplay');
               const waLinkEl = document.getElementById('tgWaLink');
 
-              if (data.success) {
-                  if (data.ipv4) tgDetectedIpv4 = data.ipv4;
-                  if (data.ipv6) tgDetectedIpv6 = data.ipv6;
-                  if (displayEl) displayEl.innerText = tgDetectedIpv4 + ' (IPv4) | ' + tgDetectedIpv6 + ' (IPv6)';
+              if (data.success && data.ipv4) {
+                  tgDetectedIpv4 = data.ipv4;
+                  if (displayEl) displayEl.innerText = tgDetectedIpv4;
                   if (waLinkEl) {
                       const tgLines = [
-                          'Halo Admin Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178082835085:',
-                          '- IPv4: ' + tgDetectedIpv4,
-                          '- IPv6: ' + tgDetectedIpv6,
+                          'Halo Admin Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178375739934:',
+                          '- IP VPS (IPv4): ' + tgDetectedIpv4,
                           'Terima kasih!'
                       ];
                       const msg = encodeURIComponent(tgLines.join(String.fromCharCode(10)));
@@ -3513,9 +3511,8 @@ function renderTokoGorontaloAdminModal(isCurrentSuperAdmin = false) {
 
       function copyTgIpRegistrationFormat() {
           const tgLines = [
-              'Halo Admin Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178082835085:',
-              '- IPv4: ' + tgDetectedIpv4,
-              '- IPv6: ' + tgDetectedIpv6,
+              'Halo Admin Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178375739934:',
+              '- IP VPS (IPv4): ' + tgDetectedIpv4,
               'Terima kasih!'
           ];
           const text = tgLines.join(String.fromCharCode(10));
