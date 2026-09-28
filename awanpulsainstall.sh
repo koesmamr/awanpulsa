@@ -6,6 +6,32 @@
 # ==============================================================================
 set -e
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export PATH=$PATH:/usr/local/bin:/usr/bin:~/.npm-global/bin
+
+if [ -f /etc/needrestart/needrestart.conf ]; then
+    sed -i 's/#$nrconf{restart} = .*/$nrconf{restart} = "a";/g' /etc/needrestart/needrestart.conf 2>/dev/null || true
+fi
+
+wait_for_apt() {
+    local max_wait=40
+    local waited=0
+    if command -v fuser >/dev/null 2>&1; then
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+            echo "   ⏳ Menunggu proses paket sistem selesai... (${waited}s)"
+            sleep 3
+            waited=$((waited + 3))
+            if [ $waited -ge $max_wait ]; then
+                killall -9 apt-get apt unattended-upgrade-shutdown dpkg 2>/dev/null || true
+                rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
+                dpkg --configure -a 2>/dev/null || true
+                break
+            fi
+        done
+    fi
+}
+
 # Warna Terminal
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -36,6 +62,20 @@ APP_DIR="/var/www/awanpulsa"
 REPO_URL="${REPO_URL:-https://github.com/koesmamr/awanpulsa.git}"
 BRANCH="${BRANCH:-main}"
 
+# 0. Prioritaskan IPv4 di tingkat OS
+echo -e "${YELLOW}==> Mengonfigurasi prioritas IPv4 murni...${NC}"
+if [ -f /etc/gai.conf ]; then
+    sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/g' /etc/gai.conf
+    grep -q "precedence ::ffff:0:0/96  100" /etc/gai.conf || echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+else
+    echo "precedence ::ffff:0:0/96  100" > /etc/gai.conf
+fi
+
+# Hentikan apache2 jika ada
+systemctl stop apache2 2>/dev/null || true
+systemctl disable apache2 2>/dev/null || true
+killall -9 apache2 httpd 2>/dev/null || true
+
 # 2. Deteksi Lingkungan VPS (Cek WarungPulsa & Pasar-Desa)
 echo -e "${YELLOW}==> [1/7] Memeriksa lingkungan server multi-app...${NC}"
 
@@ -47,97 +87,43 @@ if [ -d "/var/www/pasar-desa" ] || [ -f "/etc/nginx/sites-available/pasar-desa" 
     echo -e "${GREEN}  ✓ Terdeteksi aplikasi Pasar Desa di VPS ini.${NC}"
 fi
 
-echo -e "${GREEN}  ✓ AwanPulsa akan dipasang di Port ${APP_PORT} (terisolasi) agar semua aplikasi aman 100%.${NC}"
-
-# Bersihkan jika Certbot sempat salah menyuntikkan SSL awanpulsa ke dalam config warungpulsa
-if [ -f "/etc/nginx/sites-available/warungpulsa" ]; then
-    if grep -q "awanpulsa" /etc/nginx/sites-available/warungpulsa || ! grep -q "listen 443" /etc/nginx/sites-available/warungpulsa; then
-        echo -e "${YELLOW}  ⚠️ Mengonfigurasi Nginx Warung Pulsa agar terpisah sempurna...${NC}"
-        cp /etc/nginx/sites-available/warungpulsa /etc/nginx/sites-available/warungpulsa.bak_$(date +%s) 2>/dev/null || true
-        cat > /etc/nginx/sites-available/warungpulsa << 'WP_EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name warungpulsa.web.id www.warungpulsa.web.id;
-
-    client_max_body_size 50M;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-
-        proxy_connect_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
-    }
-}
-WP_EOF
-        WP_CERT="/etc/letsencrypt/live/warungpulsa.web.id/fullchain.pem"
-        WP_KEY="/etc/letsencrypt/live/warungpulsa.web.id/privkey.pem"
-        if [ -f "$WP_CERT" ] && [ -f "$WP_KEY" ]; then
-            cat >> /etc/nginx/sites-available/warungpulsa << WP_SSL_EOF
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name warungpulsa.web.id www.warungpulsa.web.id;
-
-    ssl_certificate ${WP_CERT};
-    ssl_certificate_key ${WP_KEY};
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    client_max_body_size 50M;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-
-        proxy_connect_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
-    }
-}
-WP_SSL_EOF
-            echo -e "${GREEN}  ✓ SSL Warung Pulsa terpasang ke Port 3000.${NC}"
-        fi
-        echo -e "${GREEN}  ✓ Konfigurasi Warung Pulsa berhasil dipulihkan murni ke Port 3000.${NC}"
-    fi
-fi
+echo -e "${GREEN}  ✓ AwanPulsa akan dipasang di Port ${APP_PORT} (terisolasi) & Direct IP Port ${ALT_PORT}.${NC}"
 
 # 3. Update paket Ubuntu & instal dependensi dasar sistem
 echo -e "${YELLOW}==> [2/7] Memeriksa paket dasar sistem...${NC}"
-export DEBIAN_FRONTEND=noninteractive
+wait_for_apt
+dpkg --configure -a >/dev/null 2>&1 || true
 apt-get update -y
-apt-get install -y curl git ufw nginx certbot python3-certbot-nginx build-essential sqlite3
+apt-get install -y curl git ufw nginx certbot python3-certbot-nginx build-essential sqlite3 ca-certificates gnupg >/dev/null 2>&1 || {
+    dpkg --configure -a >/dev/null 2>&1 || true
+    apt-get install -f -y >/dev/null 2>&1 || true
+    apt-get install -y curl git ufw nginx certbot python3-certbot-nginx build-essential sqlite3 ca-certificates gnupg
+}
 
 # 4. Periksa Node.js 22 LTS & PM2
 echo -e "${YELLOW}==> [3/7] Memeriksa runtime Node.js 22 LTS...${NC}"
+NODE_VER=$(node -v 2>/dev/null || echo "none")
 if ! command -v node &> /dev/null || [[ $(node -v | cut -d'.' -f1 | tr -d 'v') -lt 20 ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-    apt install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - || true
+    wait_for_apt
+    dpkg --configure -a >/dev/null 2>&1 || true
+    apt-get install -y nodejs
 fi
 echo -e "${GREEN}   Node.js: $(node -v)${NC}"
 echo -e "${GREEN}   NPM: $(npm -v)${NC}"
 
 if ! command -v pm2 &> /dev/null; then
     echo -e "${YELLOW}   Menginstal PM2 Process Manager secara global...${NC}"
-    npm install -g pm2
+    npm install -g pm2 || npm install -g pm2 --force
+    hash -r 2>/dev/null || true
 fi
+for p in /usr/local/bin/pm2 /usr/bin/pm2 $(which pm2 2>/dev/null); do
+    if [ -f "$p" ]; then
+        ln -sf "$p" /usr/bin/pm2 2>/dev/null || true
+        ln -sf "$p" /usr/local/bin/pm2 2>/dev/null || true
+        break
+    fi
+done
 
 # 5. Download / Sinkronisasi Source Code dari GitHub
 echo -e "${YELLOW}==> [4/7] Mengunduh source code AwanPulsa dari GitHub (${REPO_URL})...${NC}"
@@ -159,13 +145,12 @@ else
     echo -e "${CYAN}   Meng-clone repository baru ke $APP_DIR...${NC}"
     rm -rf "$APP_DIR"
     git clone "$REPO_URL" "$APP_DIR" || {
-        echo -e "${RED}[ERROR] Gagal clone repo $REPO_URL. Pastikan repository GitHub sudah dibuat dan bersifat Public.${NC}"
+        echo -e "${RED}[ERROR] Gagal clone repo $REPO_URL. Pastikan repository GitHub bersifat Public.${NC}"
         exit 1
     }
     cd "$APP_DIR"
 fi
 
-# Pastikan logo resmi AwanPulsa terpasang dan sinkron
 if [ -f "$APP_DIR/logo-awanpulsa.png" ]; then
     cp -f "$APP_DIR/logo-awanpulsa.png" "$APP_DIR/logo.png" 2>/dev/null || true
 fi
@@ -191,9 +176,9 @@ ADMIN_EMAIL=admin@${DOMAIN}
 BACKUP_PASSWORD=AwanPulsa2026Secure!
 
 TOKOGORONTALO_BASE_URL=https://app.tupo.my.id
-TOKOGORONTALO_USERID=your_userid
-TOKOGORONTALO_PIN=your_pin
-TOKOGORONTALO_PASS=your_password
+TOKOGORONTALO_USERID=178375739934
+TOKOGORONTALO_PIN=210284
+TOKOGORONTALO_PASS=71377019
 EOF
     fi
     chmod 600 "$APP_DIR/.env"
@@ -202,24 +187,16 @@ else
     echo -e "${GREEN}   File .env sudah ada, memastikan kredensial sistem terpasang...${NC}"
 fi
 
-# Perbarui Google OAuth jika variabel diberikan saat eksekusi installer
-if [ -n "$GOOGLE_CLIENT_ID" ]; then
-    sed -i "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|g" "$APP_DIR/.env"
-fi
-if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
-    sed -i "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}|g" "$APP_DIR/.env"
-fi
-
 # Pastikan kredensial resmi Toko Gorontalo terpasang di .env
 if [ -f "$APP_DIR/.env" ]; then
     sed -i "s|TOKOGORONTALO_BASE_URL=.*|TOKOGORONTALO_BASE_URL=https://app.tupo.my.id|g" "$APP_DIR/.env"
     sed -i "s|TOKOGORONTALO_USERID=.*|TOKOGORONTALO_USERID=178375739934|g" "$APP_DIR/.env"
     sed -i "s|TOKOGORONTALO_PIN=.*|TOKOGORONTALO_PIN=210284|g" "$APP_DIR/.env"
     sed -i "s|TOKOGORONTALO_PASS=.*|TOKOGORONTALO_PASS=71377019|g" "$APP_DIR/.env"
-    echo -e "${GREEN}   Kredensial Toko Gorontalo (178375739934) berhasil dipasang ke .env.${NC}"
+    echo -e "${GREEN}   Kredensial Toko Gorontalo (178375739934 - oneng cell) terpasang di .env.${NC}"
 fi
 
-# 8. Konfigurasi Nginx Virtual Host Khusus AwanPulsa (DILARANG default_server!)
+# 8. Konfigurasi Nginx Virtual Host Khusus AwanPulsa
 echo -e "${YELLOW}==> [7/7] Mengonfigurasi Nginx Virtual Host AwanPulsa (Port ${APP_PORT})...${NC}"
 
 SSL_CERT="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
@@ -229,7 +206,6 @@ cat > /etc/nginx/sites-available/awanpulsa << EOF
 # 1. Routing HTTP Port 80
 server {
     listen 80;
-    listen [::]:80;
     server_name ${DOMAIN} www.${DOMAIN};
 
     client_max_body_size 50M;
@@ -254,7 +230,6 @@ server {
 # 2. Akses Direct IP Port ${ALT_PORT} (Dapat diakses langsung via IP VPS)
 server {
     listen ${ALT_PORT};
-    listen [::]:${ALT_PORT};
     server_name _;
 
     client_max_body_size 50M;
@@ -277,7 +252,6 @@ server {
 }
 EOF
 
-# Jika sertifikat SSL sudah pernah digenerate oleh Certbot, sertakan blok HTTPS Port 443
 if [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
     echo -e "${GREEN}   Sertifikat SSL Let's Encrypt terdeteksi untuk ${DOMAIN}! Mengaktifkan blok HTTPS...${NC}"
     cat >> /etc/nginx/sites-available/awanpulsa << EOF
@@ -285,7 +259,6 @@ if [ -f "$SSL_CERT" ] && [ -f "$SSL_KEY" ]; then
 # 3. Routing HTTPS Port 443 Resmi AwanPulsa -> Port ${APP_PORT}
 server {
     listen 443 ssl;
-    listen [::]:443 ssl;
     server_name ${DOMAIN} www.${DOMAIN};
 
     ssl_certificate ${SSL_CERT};
@@ -316,27 +289,31 @@ fi
 
 # Aktifkan site Nginx khusus awanpulsa
 ln -sf /etc/nginx/sites-available/awanpulsa /etc/nginx/sites-enabled/awanpulsa
-
-# Validasi & reload Nginx
 nginx -t && systemctl reload nginx
 
 # 9. Jalankan proses PM2 khusus 'awanpulsa'
 echo -e "${YELLOW}==> Memastikan proses PM2 AwanPulsa aktif (Port ${APP_PORT})...${NC}"
 cd "$APP_DIR"
 pm2 delete awanpulsa 2>/dev/null || true
-pm2 start ecosystem.config.js
+if [ -f "ecosystem.config.js" ]; then
+    pm2 start ecosystem.config.js
+else
+    pm2 start server.js --name "awanpulsa"
+fi
 pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
 # Buka firewall untuk port alternatif jika UFW aktif
 ufw allow ${ALT_PORT}/tcp 2>/dev/null || true
+ufw allow 80/tcp 2>/dev/null || true
+ufw allow 443/tcp 2>/dev/null || true
 
-# Ambil IP VPS Publik
-SERVER_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "IP_VPS_ANDA")
+# Ambil IP VPS Publik murni IPv4
+SERVER_IP=$(curl -4 -s --max-time 4 ifconfig.me 2>/dev/null || curl -4 -s --max-time 4 icanhazip.com 2>/dev/null || curl -4 -s --max-time 4 api.ipify.org 2>/dev/null || echo "IP_VPS_ANDA")
 
 echo ""
 echo -e "${GREEN}=================================================================="
-echo "  🎉 AUTOINSTALL AWANPULSA BERHASIL DIPERBARUI!"
+echo "  🎉 AUTOINSTALL AWANPULSA BERHASIL DISELESAIKAN!"
 echo "==================================================================${NC}"
 echo -e "Web AwanPulsa Anda sekarang sudah AKTIF di server VPS!"
 echo ""
@@ -350,4 +327,13 @@ echo "📌 Lokasi instalasi : /var/www/awanpulsa"
 echo "📌 Status PM2       : ketik 'pm2 status' atau 'pm2 logs awanpulsa'"
 echo "📌 Edit Konfigurasi : nano /var/www/awanpulsa/.env"
 echo "📌 Terapkan Edit    : pm2 restart awanpulsa"
+echo ""
+echo "⚡ WHITELIST IP TOKO GORONTALO (H2H):"
+echo "   Kirimkan format berikut ke CS Toko Gorontalo (0815240260221):"
+echo "   ----------------------------------------------------------------------"
+echo "   Halo Admin Toko Gorontalo, tolong daftarkan IP server VPS saya untuk"
+echo "   transaksi H2H akun Member ID: 178375739934 (oneng cell):"
+echo "   - IP VPS (IPv4): ${SERVER_IP}"
+echo "   Terima kasih!"
+echo "   ----------------------------------------------------------------------"
 echo "=================================================================="

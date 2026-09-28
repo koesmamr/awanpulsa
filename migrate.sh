@@ -9,21 +9,32 @@
 # Mendukung: AwanPulsa, WarungPulsa, Pasar-Desa (Satuan maupun Borongan)
 # ==============================================================================
 
-# set -e sengaja dinonaktifkan agar script tidak berhenti mendadak oleh warning sistem
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export PATH=$PATH:/usr/local/bin:/usr/bin:~/.npm-global/bin
+
+# Nonaktifkan prompt interaktif needrestart di Ubuntu 24.04 / 22.04 LTS
+if [ -f /etc/needrestart/needrestart.conf ]; then
+    sed -i 's/#$nrconf{restart} = .*/$nrconf{restart} = "a";/g' /etc/needrestart/needrestart.conf 2>/dev/null || true
+fi
+
+# Fungsi menunggu proses apt / dpkg selesai agar tidak bertabrakan
 wait_for_apt() {
-    local max_wait=60
+    local max_wait=40
     local waited=0
-    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
-        echo -e "${YELLOW}   ⏳ Sistem Ubuntu sedang menyelesaikan update latar belakang. Menunggu... (${waited}s)${NC}"
-        sleep 4
-        waited=$((waited + 4))
-        if [ $waited -ge $max_wait ]; then
-            killall -9 apt-get apt unattended-upgrade-shutdown dpkg >/dev/null 2>&1 || true
-            rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock
-            dpkg --configure -a >/dev/null 2>&1 || true
-            break
-        fi
-    done
+    if command -v fuser >/dev/null 2>&1; then
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+            echo -e "${YELLOW}   ⏳ Menunggu proses paket sistem selesai... (${waited}s)${NC}"
+            sleep 3
+            waited=$((waited + 3))
+            if [ $waited -ge $max_wait ]; then
+                killall -9 apt-get apt unattended-upgrade-shutdown dpkg 2>/dev/null || true
+                rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
+                dpkg --configure -a 2>/dev/null || true
+                break
+            fi
+        done
+    fi
 }
 
 # Warna Terminal
@@ -35,8 +46,6 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
-
-
 
 clear
 echo -e "${CYAN}"
@@ -162,9 +171,14 @@ done
 
 echo ""
 echo -e "${YELLOW}==> Menyiapkan paket pendukung koneksi (sshpass & rsync)...${NC}"
-export DEBIAN_FRONTEND=noninteractive
+wait_for_apt
+dpkg --configure -a >/dev/null 2>&1 || true
 apt-get update -y >/dev/null 2>&1 || true
-apt-get install -y sshpass rsync curl git >/dev/null 2>&1
+apt-get install -y sshpass rsync curl git >/dev/null 2>&1 || {
+    dpkg --configure -a >/dev/null 2>&1 || true
+    apt-get install -f -y >/dev/null 2>&1 || true
+    apt-get install -y sshpass rsync curl git >/dev/null 2>&1 || true
+}
 
 # 4. Tes Koneksi SSH ke VPS Lama
 echo -e "${YELLOW}==> Menguji konektivitas SSH ke VPS Lama ($OLD_USER@$OLD_IP:$OLD_PORT)...${NC}"
@@ -222,10 +236,15 @@ if [ -f /etc/gai.conf ]; then
 else
     echo "precedence ::ffff:0:0/96  100" > /etc/gai.conf
 fi
+
+# Hentikan service apache2 yang sering membajak port 80 secara default
 systemctl stop apache2 2>/dev/null || true
 systemctl disable apache2 2>/dev/null || true
+killall -9 apache2 httpd 2>/dev/null || true
+
 wait_for_apt
-export DEBIAN_FRONTEND=noninteractive
+dpkg --configure -a >/dev/null 2>&1 || true
+
 apt-get install -y ufw nginx certbot python3-certbot-nginx build-essential sqlite3 ca-certificates gnupg >/dev/null 2>&1 || {
     echo -e "${YELLOW}   Menyesuaikan paket instalasi sistem...${NC}"
     dpkg --configure -a >/dev/null 2>&1 || true
@@ -233,23 +252,34 @@ apt-get install -y ufw nginx certbot python3-certbot-nginx build-essential sqlit
     apt-get install -y ufw nginx certbot python3-certbot-nginx build-essential sqlite3 ca-certificates gnupg >/dev/null 2>&1 || true
 }
 
-# Pastikan Node.js 22 LTS & NPM terpasang
+# Pastikan Node.js 22 LTS terpasang via NodeSource (HANYA install package nodejs, jangan tambahkan npm terpisah)
 NODE_VER=$(node -v 2>/dev/null || echo "none")
 if [[ "$NODE_VER" != v22* && "$NODE_VER" != v20* && "$NODE_VER" != v24* ]]; then
-    echo -e "${CYAN}   Mengunduh & memasang Node.js 22 LTS & NPM via NodeSource...${NC}"
+    echo -e "${CYAN}   Mengunduh & memasang Node.js 22 LTS via NodeSource...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - || true
     wait_for_apt
-    apt-get install -y nodejs npm || apt-get install -y nodejs
+    dpkg --configure -a >/dev/null 2>&1 || true
+    apt-get install -y nodejs >/dev/null 2>&1 || {
+        apt-get install -f -y >/dev/null 2>&1 || true
+        apt-get install -y nodejs
+    }
 fi
 echo -e "${GREEN}   Node.js: $(node -v 2>/dev/null || echo 'gagal') | NPM: $(npm -v 2>/dev/null || echo 'gagal')${NC}"
 
-# Pastikan PM2 terpasang
+# Pastikan PM2 terpasang & symlink tersedia
+export PATH=$PATH:/usr/local/bin:/usr/bin:~/.npm-global/bin
 if ! command -v pm2 &> /dev/null; then
     echo -e "${CYAN}   Menginstal PM2 Process Manager secara global...${NC}"
     npm install -g pm2 || npm install -g pm2 --force
     hash -r 2>/dev/null || true
-    [ -f /usr/local/bin/pm2 ] && [ ! -f /usr/bin/pm2 ] && ln -sf /usr/local/bin/pm2 /usr/bin/pm2
 fi
+for p in /usr/local/bin/pm2 /usr/bin/pm2 $(which pm2 2>/dev/null); do
+    if [ -f "$p" ]; then
+        ln -sf "$p" /usr/bin/pm2 2>/dev/null || true
+        ln -sf "$p" /usr/local/bin/pm2 2>/dev/null || true
+        break
+    fi
+done
 echo -e "${GREEN}   PM2: $(pm2 -v 2>/dev/null || echo 'terpasang')${NC}"
 
 mkdir -p /var/www
@@ -268,7 +298,6 @@ sync_application() {
     echo -e "${MAGENTA}================================================================================${NC}"
 
     # A. Checkpoint WAL SQLite di VPS Lama secara non-blocking (PASSIVE)
-    # Mode PASSIVE memastikan transaksi terbaru di RAM disinkronkan ke disk TANPA mengunci / mengganggu web yang sedang berjalan di VPS Lama
     echo -e "${YELLOW}   [Step A] Melakukan SQLite WAL Sync di VPS Lama (Non-blocking)...${NC}"
     eval "$SSH_CMD $OLD_USER@$OLD_IP '
         if [ -f \"${APP_DIR}/data/${DB_NAME}\" ]; then
@@ -318,11 +347,15 @@ sync_application() {
     npm install >/dev/null 2>&1 || npm install --production >/dev/null 2>&1
     echo -e "${GREEN}   ✓ Dependensi ${APP_NAME} terpasang sempurna.${NC}"
 
-    # E. Jalankan Service di PM2 (Fork Mode agar stabil & terisolasi)
+    # E. Jalankan Service di PM2
     echo -e "${YELLOW}   [Step E] Mendaftarkan & menyalakan proses di PM2...${NC}"
     cd "$APP_DIR"
     pm2 delete "$APP_NAME" 2>/dev/null || true
-    pm2 start server.js --name "$APP_NAME" >/dev/null 2>&1
+    if [ -f "ecosystem.config.js" ]; then
+        pm2 start ecosystem.config.js >/dev/null 2>&1 || pm2 start server.js --name "$APP_NAME" >/dev/null 2>&1
+    else
+        pm2 start server.js --name "$APP_NAME" >/dev/null 2>&1
+    fi
     echo -e "${GREEN}   ✓ Aplikasi ${APP_NAME} aktif di PM2 (Port internal: ${APP_PORT}).${NC}"
 }
 
@@ -379,10 +412,10 @@ fi
 # Hapus default Nginx jika ada agar tidak terjadi bentrok
 rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
-# Nonaktifkan IPv6 jika kernel VPS tidak mendukung IPv6 (seperti di IDCloudHost)
+# Nonaktifkan IPv6 jika kernel VPS tidak mendukung IPv6
 sed -i 's/listen \[::\]:/# listen [::]:/g' /etc/nginx/sites-available/* /etc/nginx/sites-enabled/* /etc/nginx/conf.d/* 2>/dev/null || true
 
-# Konfigurasi Akses Direct IP (Port 8080, 8081, 8082) agar website bisa langsung dites via IP sebelum setting DNS
+# Konfigurasi Akses Direct IP (Port 8080 WarungPulsa, 8081 Pasar-Desa, 8082 AwanPulsa)
 cat > /etc/nginx/sites-available/direct-ip << 'DIR_EOF'
 server {
     listen 8080;
@@ -485,14 +518,31 @@ cat << EOF
    Ubah A-Record domain Anda ke IP VPS Baru:
    -> IP VPS BARU : ${NEW_IP}
 
-2. ⚡ WHITELIST IP TOKO GORONTALO (Khusus AwanPulsa / WarungPulsa):
-   Segera kirim pesan ke Admin/CS Toko Gorontalo:
-   ----------------------------------------------------------------------
-   "Halo CS Toko Gorontalo, mohon update Whitelist IP untuk akun saya:
-    User ID : 178375739934
-    IP Baru : ${NEW_IP}"
-   ----------------------------------------------------------------------
+2. ⚡ WHITELIST IP TOKO GORONTALO (Khusus PPOB):
+   Penting: Toko Gorontalo menerapkan aturan 1 IP = 1 Akun Member.
+EOF
 
+if [ "$MIGRATE_AWAN" = true ]; then
+cat << EOF
+   • Pendaftaran Akun AwanPulsa:
+     "Halo CS Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178375739934 (oneng cell):
+      - IP VPS (IPv4): ${NEW_IP}
+      Terima kasih!"
+
+EOF
+fi
+
+if [ "$MIGRATE_WARUNG" = true ]; then
+cat << EOF
+   • Pendaftaran Akun WarungPulsa:
+     "Halo CS Toko Gorontalo, tolong daftarkan IP server VPS saya untuk transaksi H2H akun Member ID: 178082835085 (Level-3 APARAT):
+      - IP VPS (IPv4): ${NEW_IP}
+      Terima kasih!"
+
+EOF
+fi
+
+cat << EOF
 3. 🔒 SERTIFIKAT SSL:
    Sertifikat SSL Let's Encrypt lama telah disalin otomatis. Website langsung
    bisa diakses via HTTPS seketika begitu DNS mengarah ke IP baru.
