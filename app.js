@@ -7766,7 +7766,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                   '  <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">' +
                                   '    <p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Total Wajib Bayar</p>' +
                                   '    <p class="text-3xl font-black text-emerald-600 tracking-tight">Rp ' + Number(data.total_amount).toLocaleString('id-ID') + '</p>' +
-                                  '    <span class="inline-block mt-1 text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md font-mono">Termasuk kode unik Rp ' + data.unique_code + '</span>' +
+                                  (data.unique_code && data.unique_code > 0 ? ('    <span class="inline-block mt-1 text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md font-mono">Termasuk kode unik Rp ' + data.unique_code + '</span>') : '') +
                                   '  </div>' +
                                   '  <div class="text-center my-2 relative">' +
                                   '    <img src="' + qrImgSrc + '" alt="QRIS" class="mx-auto rounded-2xl w-60 h-60 object-contain shadow-md border border-slate-200 bg-white p-2">' +
@@ -8699,15 +8699,8 @@ Status: UNPAID PENDING (Menunggu Bukti Transfer via WhatsApp CS)`, appSettings))
           });
         }
         if (selectedMethod === "shopeepay" || selectedMethod === "auto") {
-          // Cari kode unik 3 digit (100-999) yang belum dipakai oleh invoice UNPAID saat ini
-          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 100, amount + 999).all().catch(() => ({ results: [] }));
-          const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
-          let uniqueCode = Math.floor(Math.random() * 900) + 100;
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (!usedAmounts.has(amount + uniqueCode)) break;
-            uniqueCode = Math.floor(Math.random() * 900) + 100;
-          }
-          const nominalUnik = amount + uniqueCode;
+          const nominalUnik = amount;
+          const uniqueCode = 0;
           const tx = await createShopeePayTransaction(env, appSettings, nominalUnik);
           if (tx.success) {
             const orderSn = tx.order_sn || "";
@@ -8717,11 +8710,11 @@ Status: UNPAID PENDING (Menunggu Bukti Transfer via WhatsApp CS)`, appSettings))
             const refKode = `AGPSHOPEE-${orderSn}-${Date.now()}`;
             await env.DB.prepare("INSERT INTO invoices (ref, email, amount, status, date) VALUES (?, ?, ?, 'UNPAID', ?)").bind(refKode, currentUser.email, nominalUnik, getWIBTime()).run();
             const qrDisplay = tx.qr_url || ("https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(tx.qr_string || ''));
-            const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via QRIS Otomatis sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b> (Termasuk kode unik Rp ${uniqueCode}).<br><br>Silakan scan QRIS di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS Otomatis" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
+            const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via QRIS Otomatis sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b>.<br><br>Silakan scan QRIS di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS Otomatis" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
             await env.DB.prepare("INSERT INTO inbox (email, title, message, date, read) VALUES (?, ?, ?, ?, 0)").bind(currentUser.email, `[PENDING] Top Up Saldo`, pendingMsg, getWIBTime()).run();
             ctx.waitUntil(sendTelegramLog("🧾 LOG CREATE TOP UP", `User <b>${currentUser.email}</b> membuat tagihan Top Up Saldo.
 
-Nominal: Rp ${nominalUnik.toLocaleString("id-ID")} (Termasuk Kode Unik Rp ${uniqueCode})
+Nominal: Rp ${nominalUnik.toLocaleString("id-ID")}
 Metode: QRIS Otomatis (autocek by system)
 Ref: ${refKode}
 Status: UNPAID PENDING`, appSettings));
@@ -8741,15 +8734,8 @@ Status: UNPAID PENDING`, appSettings));
           }
         }
         if (selectedMethod === "gopay" || (selectedMethod === "auto" && appSettings.payment_gopay)) {
-          // Cari kode unik 3 digit (100-999) yang belum dipakai oleh invoice UNPAID saat ini
-          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 100, amount + 999).all().catch(() => ({ results: [] }));
-          const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
-          let uniqueCode = Math.floor(Math.random() * 900) + 100;
-          for (let attempt = 0; attempt < 100; attempt++) {
-            if (!usedAmounts.has(amount + uniqueCode)) break;
-            uniqueCode = Math.floor(Math.random() * 900) + 100;
-          }
-          const nominalUnik = amount + uniqueCode;
+          const nominalUnik = amount;
+          const uniqueCode = 0;
           const tx = await createGoPayTransaction(env, appSettings, nominalUnik);
           if (tx.success) {
             const txId = tx.transaction_id || "";
@@ -8759,11 +8745,11 @@ Status: UNPAID PENDING`, appSettings));
             const refKode = `AGPGOPAY-${txId}-${Date.now()}`;
             await env.DB.prepare("INSERT INTO invoices (ref, email, amount, status, date) VALUES (?, ?, ?, 'UNPAID', ?)").bind(refKode, currentUser.email, nominalUnik, getWIBTime()).run();
             const qrDisplay = tx.qr_url || ("https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(tx.qr_string || ''));
-            const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via GoPay sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b> (Termasuk kode unik Rp ${uniqueCode}).<br><br>Silakan scan QRIS GoPay di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS GoPay" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
+            const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via GoPay sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b>.<br><br>Silakan scan QRIS GoPay di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS GoPay" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
             await env.DB.prepare("INSERT INTO inbox (email, title, message, date, read) VALUES (?, ?, ?, ?, 0)").bind(currentUser.email, `[PENDING] Top Up Saldo`, pendingMsg, getWIBTime()).run();
             ctx.waitUntil(sendTelegramLog("🧾 LOG CREATE TOP UP", `User <b>${currentUser.email}</b> membuat tagihan Top Up Saldo.
 
-Nominal: Rp ${nominalUnik.toLocaleString("id-ID")} (Termasuk Kode Unik Rp ${uniqueCode})
+Nominal: Rp ${nominalUnik.toLocaleString("id-ID")}
 Metode: GoPay (AutoGoPay)
 Ref: ${refKode}
 Status: UNPAID PENDING`, appSettings));
