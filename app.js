@@ -12,6 +12,7 @@ const { handleTokoGorontaloRoutes, renderPPOBContent, renderTokoGorontaloAdminMo
 var cachedAppSettings = null;
 var cachedAppSettingsTime = 0;
 var CACHE_TTL = 3e5;
+var checkPaymentRateLimitMap = new Map();
 function checkIsSuperAdmin(userOrEmail, env) {
   if (!userOrEmail) return false;
   if (typeof userOrEmail === "object") {
@@ -5891,7 +5892,8 @@ var worker_default = {
         const expiredRefs = [];
         for (const inv of allUnpaid) {
           const invTs = parseWIBDateString(inv.date);
-          if (invTs > 0 && nowTs - invTs > 36e5) expiredRefs.push(inv.ref);
+          const maxAge = (inv.ref && inv.ref.startsWith("AGP")) ? 900000 : 36e5;
+          if (invTs > 0 && nowTs - invTs > maxAge) expiredRefs.push(inv.ref);
         }
         if (expiredRefs.length > 0) {
           const stmts = expiredRefs.map((ref) => env.DB.prepare("UPDATE invoices SET status = 'EXPIRED' WHERE ref = ?").bind(ref));
@@ -7580,7 +7582,8 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
         if (unpaidInvoices) {
           for (const inv of unpaidInvoices) {
             const invTs = parseWIBDateString(inv.date);
-            if (invTs > 0 && nowTs - invTs > 36e5) continue;
+            const maxAge = (inv.ref && inv.ref.startsWith("AGP")) ? 900000 : 36e5;
+            if (invTs > 0 && nowTs - invTs > maxAge) continue;
             validUnpaid.push(inv);
           }
         }
@@ -8614,13 +8617,14 @@ Waktu: ${getWIBTime()}`, appSettings);
         if (unpaidInvoices) {
           for (const inv of unpaidInvoices) {
             const invTs = parseWIBDateString(inv.date);
-            if (invTs > 0 && nowTs - invTs > 36e5) continue;
+            const maxAge = (inv.ref && inv.ref.startsWith("AGP")) ? 900000 : 36e5;
+            if (invTs > 0 && nowTs - invTs > maxAge) continue;
             validUnpaid.push(inv);
           }
         }
         currentUser.unpaid_invoices = validUnpaid;
         const unpaidCount = currentUser.unpaid_invoices ? currentUser.unpaid_invoices.length : 0;
-        if (unpaidCount >= 3) return jsonResponse({ success: false, message: "Terlalu banyak tagihan UNPAID. Harap lunasi atau tunggu 1 jam hingga tagihan sebelumnya kadaluarsa otomatis." }, 400);
+        if (unpaidCount >= 3) return jsonResponse({ success: false, message: "Terlalu banyak tagihan UNPAID. Harap lunasi atau tunggu 15 menit hingga tagihan sebelumnya kadaluarsa otomatis." }, 400);
 
         // Proteksi Anti Double-Click / Idempotency (30 Detik)
         if (validUnpaid && validUnpaid.length > 0) {
@@ -8642,13 +8646,13 @@ Waktu: ${getWIBTime()}`, appSettings);
           return jsonResponse({ success: false, message: "Nominal top up tidak valid. Minimal Rp 1.000 dan Maksimal Rp 10.000.000." }, 400);
         }
         if (!selectedMethod || selectedMethod.startsWith("manual")) {
-          // Cari kode unik yang belum dipakai oleh invoice UNPAID saat ini untuk menghindari benturan
-          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 1, amount + 999).all().catch(() => ({ results: [] }));
+          // Cari kode unik 3 digit (100-999) yang belum dipakai oleh invoice UNPAID saat ini
+          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 100, amount + 999).all().catch(() => ({ results: [] }));
           const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
-          let uniqueCode = Math.floor(Math.random() * 99) + 1;
+          let uniqueCode = Math.floor(Math.random() * 900) + 100;
           for (let attempt = 0; attempt < 100; attempt++) {
             if (!usedAmounts.has(amount + uniqueCode)) break;
-            uniqueCode = Math.floor(Math.random() * 99) + 1;
+            uniqueCode = Math.floor(Math.random() * 900) + 100;
           }
           const nominalUnik = amount + uniqueCode;
           const refKode = `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -8695,19 +8699,22 @@ Status: UNPAID PENDING (Menunggu Bukti Transfer via WhatsApp CS)`, appSettings))
           });
         }
         if (selectedMethod === "shopeepay" || selectedMethod === "auto") {
-          // Cari kode unik yang belum dipakai oleh invoice UNPAID saat ini untuk menghindari benturan
-          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 1, amount + 999).all().catch(() => ({ results: [] }));
+          // Cari kode unik 3 digit (100-999) yang belum dipakai oleh invoice UNPAID saat ini
+          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 100, amount + 999).all().catch(() => ({ results: [] }));
           const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
-          let uniqueCode = Math.floor(Math.random() * 99) + 1;
+          let uniqueCode = Math.floor(Math.random() * 900) + 100;
           for (let attempt = 0; attempt < 100; attempt++) {
             if (!usedAmounts.has(amount + uniqueCode)) break;
-            uniqueCode = Math.floor(Math.random() * 99) + 1;
+            uniqueCode = Math.floor(Math.random() * 900) + 100;
           }
           const nominalUnik = amount + uniqueCode;
           const tx = await createShopeePayTransaction(env, appSettings, nominalUnik);
           if (tx.success) {
             const orderSn = tx.order_sn || "";
-            const refKode = orderSn ? `AGPSHOPEE-${orderSn}-${Date.now()}` : `AGPSHOPEE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            if (!orderSn) {
+              return jsonResponse({ success: false, message: "Gagal membuat QRIS ShopeePay: Order SN tidak diterima dari gateway." }, 500);
+            }
+            const refKode = `AGPSHOPEE-${orderSn}-${Date.now()}`;
             await env.DB.prepare("INSERT INTO invoices (ref, email, amount, status, date) VALUES (?, ?, ?, 'UNPAID', ?)").bind(refKode, currentUser.email, nominalUnik, getWIBTime()).run();
             const qrDisplay = tx.qr_url || ("https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(tx.qr_string || ''));
             const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via QRIS Otomatis sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b> (Termasuk kode unik Rp ${uniqueCode}).<br><br>Silakan scan QRIS di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS Otomatis" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
@@ -8734,19 +8741,22 @@ Status: UNPAID PENDING`, appSettings));
           }
         }
         if (selectedMethod === "gopay" || (selectedMethod === "auto" && appSettings.payment_gopay)) {
-          // Cari kode unik yang belum dipakai oleh invoice UNPAID saat ini untuk menghindari benturan
-          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 1, amount + 999).all().catch(() => ({ results: [] }));
+          // Cari kode unik 3 digit (100-999) yang belum dipakai oleh invoice UNPAID saat ini
+          const unpaidRows = await env.DB.prepare("SELECT amount FROM invoices WHERE status = 'UNPAID' AND amount >= ? AND amount <= ?").bind(amount + 100, amount + 999).all().catch(() => ({ results: [] }));
           const usedAmounts = new Set((unpaidRows.results || []).map((r) => r.amount));
-          let uniqueCode = Math.floor(Math.random() * 99) + 1;
+          let uniqueCode = Math.floor(Math.random() * 900) + 100;
           for (let attempt = 0; attempt < 100; attempt++) {
             if (!usedAmounts.has(amount + uniqueCode)) break;
-            uniqueCode = Math.floor(Math.random() * 99) + 1;
+            uniqueCode = Math.floor(Math.random() * 900) + 100;
           }
           const nominalUnik = amount + uniqueCode;
           const tx = await createGoPayTransaction(env, appSettings, nominalUnik);
           if (tx.success) {
             const txId = tx.transaction_id || "";
-            const refKode = txId ? `AGPGOPAY-${txId}-${Date.now()}` : `AGPGOPAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            if (!txId) {
+              return jsonResponse({ success: false, message: "Gagal membuat QRIS GoPay: Transaction ID tidak diterima dari gateway." }, 500);
+            }
+            const refKode = `AGPGOPAY-${txId}-${Date.now()}`;
             await env.DB.prepare("INSERT INTO invoices (ref, email, amount, status, date) VALUES (?, ?, ?, 'UNPAID', ?)").bind(refKode, currentUser.email, nominalUnik, getWIBTime()).run();
             const qrDisplay = tx.qr_url || ("https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(tx.qr_string || ''));
             const pendingMsg = `Halo! Anda telah membuat permintaan Top Up Saldo via GoPay sebesar <b class="text-green-400">Rp ${nominalUnik.toLocaleString("id-ID")}</b> (Termasuk kode unik Rp ${uniqueCode}).<br><br>Silakan scan QRIS GoPay di bawah ini sebelum batas waktu habis (Maksimal 15 Menit):<br><br><div style="text-align: center; margin: 15px 0;"><img src="${qrDisplay}" alt="QRIS GoPay" style="max-width:220px;border-radius:12px;margin:auto;display:block;border:1px solid #374151;"></div><br><span style="font-size:10px;color:#6b7280;">No. Ref: ${refKode}</span><div style="text-align: center; margin-top: 20px;"><button onclick="checkInboxPayment('${refKode}', true)" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-lg inline-flex items-center gap-2 cursor-pointer border border-green-400/30 hover:scale-105"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 🔍 Cek Status Pembayaran</button><div class="mt-2 text-xs text-yellow-400/80 font-mono flex items-center justify-center gap-1.5"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span> Deteksi live aktif di latar belakang...</div></div>`;
@@ -8881,14 +8891,18 @@ Stack: ${e.stack || ""}`, appSettings);
     if ((path === "/webhook-autogopay" || path === "/autogopay-callback") && method === "POST") {
       try {
         const rawBody = await request.text();
-        const signature = request.headers.get("x-signature") || request.headers.get("X-Signature");
+        const signature = request.headers.get("x-signature") || request.headers.get("X-Signature") || request.headers.get("x-callback-signature");
         const { apiKey } = await getAutoGoPayConfig(env, appSettings);
         
-        if (signature && apiKey) {
-          const expectedSig = await hmacSha256(rawBody, apiKey);
-          if (signature.toLowerCase() !== expectedSig.toLowerCase()) {
-            return jsonResponse({ success: false, message: "Invalid webhook signature." }, 401);
-          }
+        if (!apiKey) {
+          return jsonResponse({ success: false, message: "AutoGoPay API Key belum dikonfigurasi." }, 403);
+        }
+        if (!signature) {
+          return jsonResponse({ success: false, message: "Missing required signature header." }, 401);
+        }
+        const expectedSig = await hmacSha256(rawBody, apiKey);
+        if (signature.toLowerCase() !== expectedSig.toLowerCase()) {
+          return jsonResponse({ success: false, message: "Invalid webhook signature." }, 401);
         }
 
         const bodyObj = JSON.parse(rawBody || "{}");
@@ -8901,12 +8915,32 @@ Stack: ${e.stack || ""}`, appSettings);
         // HANYA proses jika status BENAR-BENAR sukses / paid (BUKAN sekadar is_money_in yang selalu true di QRIS)
         if (amount && (isStatusSuccess || isPaidField)) {
           const orderSn = bodyObj.transaction?.order_sn || bodyObj.order_sn || bodyObj.data?.order_sn;
+          const transactionId = bodyObj.transaction?.transaction_id || bodyObj.transaction_id || bodyObj.data?.transaction_id || bodyObj.transaction?.order_id || bodyObj.order_id || bodyObj.data?.order_id;
           let invoice = null;
           if (orderSn) {
             invoice = await env.DB.prepare("SELECT * FROM invoices WHERE status = 'UNPAID' AND (ref LIKE ? OR ref = ?)").bind(`%${orderSn}%`, orderSn).first();
           }
+          if (!invoice && transactionId) {
+            invoice = await env.DB.prepare("SELECT * FROM invoices WHERE status = 'UNPAID' AND (ref LIKE ? OR ref = ?)").bind(`%${transactionId}%`, transactionId).first();
+          }
+
+          // Strict Security: Tolak jika tidak terikat ke order_sn / transaction_id yang sah
           if (!invoice) {
-            invoice = await env.DB.prepare("SELECT * FROM invoices WHERE amount = ? AND status = 'UNPAID' AND (ref LIKE 'AGP%' OR ref LIKE 'AGPGOPAY%' OR ref LIKE 'AGPSHOPEE%') ORDER BY rowid DESC LIMIT 1").bind(parseInt(amount)).first();
+            return jsonResponse({ success: false, message: "Invoice tidak ditemukan atau sudah dibayar untuk transaksi ini." }, 404);
+          }
+
+          // Strict Expiration (Maksimal 15 Menit = 900.000 ms)
+          const invTs = parseWIBDateString(invoice.date);
+          const nowTs = Date.now();
+          if (invTs > 0 && (nowTs - invTs > 900000)) {
+            await env.DB.prepare("UPDATE invoices SET status = 'EXPIRED' WHERE ref = ? AND status = 'UNPAID'").bind(invoice.ref).run();
+            await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND message LIKE ?").bind(invoice.email, "%" + invoice.ref + "%").run().catch(() => {});
+            return jsonResponse({ success: false, message: "Tagihan telah kadaluarsa (> 15 menit)." }, 400);
+          }
+
+          // Strict Amount Validation
+          if (parseInt(invoice.amount) !== parseInt(amount)) {
+            return jsonResponse({ success: false, message: "Nominal transaksi tidak cocok dengan tagihan." }, 400);
           }
           if (invoice) {
             const updateInvoice = await env.DB.prepare("UPDATE invoices SET status = 'PAID' WHERE ref = ? AND status = 'UNPAID'").bind(invoice.ref).run();
@@ -8951,6 +8985,8 @@ Stack: ${e.stack || ""}`, appSettings);
         let orderSn = bodyData.order_sn || url.searchParams.get("order_sn");
         let transactionId = bodyData.transaction_id || url.searchParams.get("transaction_id");
 
+        if (!ref) return jsonResponse({ success: false, message: "Parameter ref diperlukan." }, 400);
+
         // Ekstrak order_sn atau transaction_id langsung dari ref jika ada
         if (!orderSn && ref && ref.startsWith("AGPSHOPEE-")) {
           const parts = ref.split("-");
@@ -8965,7 +9001,19 @@ Stack: ${e.stack || ""}`, appSettings);
           }
         }
 
-        if (!ref) return jsonResponse({ success: false, message: "Parameter ref diperlukan." }, 400);
+        // Anti-Spam / Rate-Limiting Cooldown (2.0 detik per user:ref)
+        const rateLimitKey = `${currentUser.email}:${ref}`;
+        const nowTs = Date.now();
+        const lastCheckTime = checkPaymentRateLimitMap.get(rateLimitKey);
+        if (lastCheckTime && (nowTs - lastCheckTime < 2000)) {
+          return jsonResponse({ success: true, status: "UNPAID", message: "Sedang memverifikasi ke gateway, mohon tunggu sebentar..." });
+        }
+        checkPaymentRateLimitMap.set(rateLimitKey, nowTs);
+        if (checkPaymentRateLimitMap.size > 2000) {
+          for (const [k, v] of checkPaymentRateLimitMap.entries()) {
+            if (nowTs - v > 300000) checkPaymentRateLimitMap.delete(k);
+          }
+        }
 
         const invoice = await env.DB.prepare("SELECT * FROM invoices WHERE ref = ? AND email = ?").bind(ref, currentUser.email).first();
         if (!invoice) return jsonResponse({ success: false, message: "Invoice tidak ditemukan." }, 404);
@@ -8974,6 +9022,19 @@ Stack: ${e.stack || ""}`, appSettings);
           // Hapus pesan pending inbox jika faktur sudah PAID
           await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND message LIKE ?").bind(currentUser.email, "%" + ref + "%").run().catch(() => {});
           return jsonResponse({ success: true, status: "PAID", message: "Pembayaran telah berhasil diverifikasi!" });
+        }
+
+        if (invoice.status === "EXPIRED") {
+          await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND message LIKE ?").bind(currentUser.email, "%" + ref + "%").run().catch(() => {});
+          return jsonResponse({ success: false, status: "EXPIRED", message: "Tagihan ini telah kadaluarsa (melewati batas 15 menit). Silakan buat tagihan baru." }, 400);
+        }
+
+        // Hard Expiration Window (15 Menit = 900.000 ms)
+        const invTs = parseWIBDateString(invoice.date);
+        if (invTs > 0 && (nowTs - invTs > 900000)) {
+          await env.DB.prepare("UPDATE invoices SET status = 'EXPIRED' WHERE ref = ? AND status = 'UNPAID'").bind(ref).run();
+          await env.DB.prepare("DELETE FROM inbox WHERE email = ? AND message LIKE ?").bind(currentUser.email, "%" + ref + "%").run().catch(() => {});
+          return jsonResponse({ success: false, status: "EXPIRED", message: "Tagihan ini telah kadaluarsa (melewati batas 15 menit). Silakan buat tagihan baru." }, 400);
         }
 
         if (ref.startsWith("MANUAL-")) {
@@ -8991,17 +9052,18 @@ Stack: ${e.stack || ""}`, appSettings);
           gatewayType = "ShopeePay";
           let isExplicitPending = false;
 
-          // 1. Cek spesifik order_sn via API status
-          if (orderSn) {
-            const statusData = await checkShopeePayStatus(env, appSettings, orderSn);
-            if (statusData) {
-              // HANYA jika paid === true DAN status === "success" atau order_status === 1
-              if (statusData.paid === true && (statusData.status === "success" || statusData.order_status === 1)) {
-                isPaid = true;
-              } else if (statusData.paid === false || statusData.status === "pending" || statusData.order_status === 2) {
-                // JIKA statusData mengonfirmasi pesanan masih pending, TANDAI dan JANGAN fallback yang bisa salah deteksi
-                isExplicitPending = true;
-              }
+          if (!orderSn) {
+            return jsonResponse({ success: false, message: "Order SN diperlukan untuk verifikasi pembayaran ShopeePay." }, 400);
+          }
+
+          // 1. Cek spesifik order_sn via API status AutoGoPay
+          const statusData = await checkShopeePayStatus(env, appSettings, orderSn);
+          if (statusData) {
+            // HANYA jika paid === true DAN status === "success" atau order_status === 1
+            if (statusData.paid === true && (statusData.status === "success" || statusData.order_status === 1)) {
+              isPaid = true;
+            } else if (statusData.paid === false || statusData.status === "pending" || statusData.order_status === 2) {
+              isExplicitPending = true;
             }
           }
 
@@ -9011,31 +9073,21 @@ Stack: ${e.stack || ""}`, appSettings);
             const shopeeTrx = await checkShopeePayTransactions(env, appSettings);
             for (const trx of shopeeTrx) {
               const trxAmount = parseInt(trx.amount);
-              // PENTING: Di AutoGoPay ShopeePay:
-              // - status: 1 = SUCCESS / SUDAH DIBAYAR
-              // - status: 2 = PENDING / BELUM DIBAYAR
-              // - is_money_in bernilai true untuk SEMUA pesanan (termasuk yang belum dibayar!)
-              // - title "Pembayaran Diterima" ada di SEMUA pesanan (termasuk yang belum dibayar!)
-              // Oleh karena itu, HANYA terima trx.status === 1 atau settlement/success, dan TOLAK status 2 / pending!
+              // PENTING: status 1 = SUCCESS, tolak status 2 / pending
               const isTrxSuccess = (trx.status === 1 || String(trx.status).toLowerCase() === "settlement" || String(trx.status).toLowerCase() === "success") && trx.status !== 2 && String(trx.status).toLowerCase() !== "pending";
               if (!isTrxSuccess) continue;
 
-              if (orderSn) {
-                // Jika order_sn ada, pastikan order_sn SAMA PERSIS
-                if (trx.order_sn === orderSn && trxAmount === parseInt(invoice.amount)) {
-                  isPaid = true;
-                  break;
-                }
-              } else {
-                // Fallback untuk invoice lama tanpa order_sn:
-                // Nominal sama dan order_sn transaksi ini belum pernah di-klaim oleh invoice PAID manapun di DB
-                if (trxAmount === parseInt(invoice.amount)) {
-                  const alreadyClaimed = await env.DB.prepare("SELECT ref FROM invoices WHERE status = 'PAID' AND (ref LIKE ? OR ref = ?)").bind(`%${trx.order_sn}%`, trx.order_sn).first();
-                  if (!alreadyClaimed) {
-                    isPaid = true;
-                    break;
+              // Strict binding: order_sn HARUS sama persis dan nominal cocok
+              if (trx.order_sn === orderSn && trxAmount === parseInt(invoice.amount)) {
+                let trxTime = trx.created_at || trx.date || trx.time || trx.timestamp;
+                if (trxTime) {
+                  const trxTs = typeof trxTime === "number" ? (trxTime > 1e11 ? trxTime : trxTime * 1000) : parseWIBDateString(trxTime);
+                  if (trxTs > 0 && invTs > 0 && trxTs < (invTs - 120000)) {
+                    continue; // Skip mutasi sebelum invoice dibuat
                   }
                 }
+                isPaid = true;
+                break;
               }
             }
           }
@@ -9043,16 +9095,18 @@ Stack: ${e.stack || ""}`, appSettings);
           gatewayType = "GoPay";
           let isExplicitPending = false;
 
-          // 1. Cek spesifik transaction_id jika ada
-          if (transactionId) {
-            const statusData = await checkGoPayStatus(env, appSettings, transactionId);
-            if (statusData) {
-              const txStatus = String(statusData.transaction_status || statusData.status || "").toLowerCase();
-              if (statusData.paid === true || txStatus === "settlement" || txStatus === "success") {
-                isPaid = true;
-              } else if (txStatus === "pending" || statusData.paid === false) {
-                isExplicitPending = true;
-              }
+          if (!transactionId) {
+            return jsonResponse({ success: false, message: "Transaction ID diperlukan untuk verifikasi pembayaran GoPay." }, 400);
+          }
+
+          // 1. Cek spesifik transaction_id via API status AutoGoPay
+          const statusData = await checkGoPayStatus(env, appSettings, transactionId);
+          if (statusData) {
+            const txStatus = String(statusData.transaction_status || statusData.status || "").toLowerCase();
+            if (statusData.paid === true || txStatus === "settlement" || txStatus === "success") {
+              isPaid = true;
+            } else if (txStatus === "pending" || statusData.paid === false) {
+              isExplicitPending = true;
             }
           }
 
@@ -9064,19 +9118,17 @@ Stack: ${e.stack || ""}`, appSettings);
               const isTrxSuccess = (trxStatus === "settlement" || trxStatus === "success" || trxStatus === "paid" || trx.status === 1) && trxStatus !== "pending" && trx.status !== 2;
               if (!isTrxSuccess) continue;
 
-              if (transactionId) {
-                if ((trx.transaction_id === transactionId || trx.order_id === transactionId) && parseInt(trx.amount) === parseInt(invoice.amount)) {
-                  isPaid = true;
-                  break;
-                }
-              } else {
-                if (parseInt(trx.amount) === parseInt(invoice.amount)) {
-                  const alreadyClaimed = await env.DB.prepare("SELECT ref FROM invoices WHERE status = 'PAID' AND (ref LIKE ? OR ref = ?)").bind(`%${trx.transaction_id || trx.order_id}%`, trx.transaction_id || trx.order_id).first();
-                  if (!alreadyClaimed) {
-                    isPaid = true;
-                    break;
+              // Strict binding: transaction_id / order_id HARUS sama persis dan nominal cocok
+              if ((trx.transaction_id === transactionId || trx.order_id === transactionId) && parseInt(trx.amount) === parseInt(invoice.amount)) {
+                let trxTime = trx.created_at || trx.date || trx.time || trx.timestamp;
+                if (trxTime) {
+                  const trxTs = typeof trxTime === "number" ? (trxTime > 1e11 ? trxTime : trxTime * 1000) : parseWIBDateString(trxTime);
+                  if (trxTs > 0 && invTs > 0 && trxTs < (invTs - 120000)) {
+                    continue; // Skip mutasi sebelum invoice dibuat
                   }
                 }
+                isPaid = true;
+                break;
               }
             }
           }
