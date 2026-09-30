@@ -6010,7 +6010,7 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
         console.error('Gagal memuat logo/favicon:', errLogo.message);
       }
     }
-    if (path === "/qris-manual.jpg" || path === "/qris-shopee.jpg" || path === "/qris-gopay.jpg" || path === "/outlet-awanjaya.jpg" || path === "/outlet.jpg") {
+    if (path === "/bintangcod-logo.png" || path === "/qris-manual.jpg" || path === "/qris-shopee.jpg" || path === "/qris-gopay.jpg" || path === "/outlet-awanjaya.jpg" || path === "/outlet.jpg") {
       try {
         const fsModule = require('fs');
         const pathModule = require('path');
@@ -7651,8 +7651,8 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                                 <!-- Shortcut Bintang COD -->
                                 <div class="shrink-0">
                                     <a href="https://bintangcod.com/" target="_blank" rel="noopener noreferrer" class="group flex items-center gap-4 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-600 hover:from-emerald-600 hover:to-teal-700 text-white p-4 rounded-2xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/35 transition-all duration-300 hover:scale-[1.02] border border-emerald-400/40">
-                                        <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:rotate-6 transition-transform shadow-inner">
-                                            <svg class="w-7 h-7 text-amber-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                        <div class="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                                            <img src="/bintangcod-logo.png" alt="Bintang COD" class="w-full h-full object-contain">
                                         </div>
                                         <div class="pr-1 text-left">
                                             <div class="flex items-center gap-1.5">
