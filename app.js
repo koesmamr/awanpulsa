@@ -7636,14 +7636,35 @@ Total : Rp.${totalSaldo.toLocaleString("id-ID")}
                     <div class="space-y-8 relative z-10">
                         <div class="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-200 relative overflow-hidden">
                             <div class="absolute -right-6 -top-6 text-slate-100"><svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.64-2.25 1.64-1.74 0-2.26-.87-2.32-1.92H7.9c.07 1.8 1.46 3.1 3 3.5V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"/></svg></div>
-                            <h2 class="text-slate-500 font-bold uppercase tracking-wider text-xs mb-2">Total Saldo Aktif</h2>
-                            <p class="text-4xl md:text-5xl font-black text-emerald-600 mb-4 tracking-tighter">${formatRupiah(currentUser.balance)}</p>
-                            
-                            <!-- Tombol Toggle Form Top Up -->
-                            <button id="btnToggleTopup" onclick="document.getElementById('topupFormContainer').classList.toggle('hidden'); this.querySelector('.toggle-icon').classList.toggle('rotate-45');" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-lg flex items-center gap-2 text-sm relative z-20">
-                                <svg class="w-4 h-4 transition-transform duration-300 toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                <span>Top Up Saldo</span>
-                            </button>
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-20">
+                                <div>
+                                    <h2 class="text-slate-500 font-bold uppercase tracking-wider text-xs mb-2">Total Saldo Aktif</h2>
+                                    <p class="text-4xl md:text-5xl font-black text-emerald-600 mb-4 tracking-tighter">${formatRupiah(currentUser.balance)}</p>
+                                    
+                                    <!-- Tombol Toggle Form Top Up -->
+                                    <button id="btnToggleTopup" onclick="document.getElementById('topupFormContainer').classList.toggle('hidden'); this.querySelector('.toggle-icon').classList.toggle('rotate-45');" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-lg inline-flex items-center gap-2 text-sm">
+                                        <svg class="w-4 h-4 transition-transform duration-300 toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        <span>Top Up Saldo</span>
+                                    </button>
+                                </div>
+
+                                <!-- Shortcut Bintang COD -->
+                                <div class="shrink-0">
+                                    <a href="https://bintangcod.com/" target="_blank" rel="noopener noreferrer" class="group flex items-center gap-4 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-600 hover:from-emerald-600 hover:to-teal-700 text-white p-4 rounded-2xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/35 transition-all duration-300 hover:scale-[1.02] border border-emerald-400/40">
+                                        <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:rotate-6 transition-transform shadow-inner">
+                                            <svg class="w-7 h-7 text-amber-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                        </div>
+                                        <div class="pr-1 text-left">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="text-[11px] font-black uppercase tracking-wider text-emerald-100">Layanan Partner</span>
+                                                <svg class="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                            </div>
+                                            <div class="text-lg md:text-xl font-black tracking-tight leading-tight">Bintang COD</div>
+                                            <div class="text-xs text-emerald-100/90 font-medium">Sistem Distribusi Pangan & COD &raquo;</div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
 
                             <div id="topupFormContainer" class="hidden mt-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 relative z-20">
                                 <h3 class="text-sm font-bold text-slate-800 mb-3">Isi Ulang Saldo</h3>
